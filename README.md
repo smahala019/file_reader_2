@@ -27,7 +27,6 @@
 d:/antigravity/file reader/
 ├── index.html            # Main semantic HTML structure & application layout
 ├── README.md             # Complete documentation and user manual
-├── issue.txt             # Requirements and issue specifications
 ├── css/
 │   ├── base.css          # Design tokens, themes (light/dark), CSS resets
 │   ├── layout.css        # Topbar, responsive ribbon balancer, status bar, font dropdown
