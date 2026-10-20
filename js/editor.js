@@ -3393,6 +3393,76 @@
             sel.addRange(range);
             return;
           }
+
+          // 3. Header & Footer Select-All Support (Issue 2)
+          // If editing inside header editable area
+          const headerEditable = node.closest('.doc-header-editable');
+          if (headerEditable) {
+            e.preventDefault();
+            e.stopPropagation();
+            const range = document.createRange();
+            range.selectNodeContents(headerEditable);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            return;
+          }
+
+          // If editing inside footer editable area
+          const footerEditable = node.closest('.doc-footer-editable');
+          if (footerEditable) {
+            e.preventDefault();
+            e.stopPropagation();
+            const range = document.createRange();
+            range.selectNodeContents(footerEditable);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            return;
+          }
+
+          // If document has header or footer applied, select all content in body (like Microsoft Word)
+          const hasHeaderOrFooter = editor.querySelector('.doc-header-area, .doc-footer-area, .df-page-header, .df-page-footer');
+          if (hasHeaderOrFooter) {
+            const pageBodies = Array.from(editor.querySelectorAll('.df-page-body, .doc-content-body'));
+            if (pageBodies.length === 1) {
+              e.preventDefault();
+              e.stopPropagation();
+              const range = document.createRange();
+              range.selectNodeContents(pageBodies[0]);
+              sel.removeAllRanges();
+              sel.addRange(range);
+              return;
+            } else if (pageBodies.length > 1) {
+              e.preventDefault();
+              e.stopPropagation();
+              const curBody = node.closest('.df-page-body, .doc-content-body');
+              const range = document.createRange();
+              if (curBody) {
+                range.selectNodeContents(curBody);
+              } else {
+                range.setStart(pageBodies[0], 0);
+                const last = pageBodies[pageBodies.length - 1];
+                range.setEnd(last, last.childNodes.length);
+              }
+              sel.removeAllRanges();
+              sel.addRange(range);
+              return;
+            } else {
+              // Header/footer exists directly on editor children without .df-page-body wrapper
+              const contentNodes = Array.from(editor.childNodes).filter(n =>
+                !(n.nodeType === 1 && (n.classList.contains('doc-header-area') || n.classList.contains('doc-footer-area') || n.classList.contains('df-page-header') || n.classList.contains('df-page-footer') || n.classList.contains('doc-watermark-overlay') || n.classList.contains('editor-ruler')))
+              );
+              if (contentNodes.length > 0) {
+                e.preventDefault();
+                e.stopPropagation();
+                const range = document.createRange();
+                range.setStartBefore(contentNodes[0]);
+                range.setEndAfter(contentNodes[contentNodes.length - 1]);
+                sel.removeAllRanges();
+                sel.addRange(range);
+                return;
+              }
+            }
+          }
         }
       } else if (e.key === 'Backspace' || e.key === 'Delete') {
         const sel = window.getSelection();

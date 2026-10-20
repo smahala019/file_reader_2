@@ -298,6 +298,377 @@
   };
 
   // ==========================================================================
+  // IndexedDB Storage for Layout Settings (Issue 1a)
+  // Margin, Size, Page Color, Spacing, Padding, Page Border, Background Image,
+  // Slide Color, Slide Theme
+  // ==========================================================================
+  const LayoutStore = {
+    DB_NAME: 'DocFlow_Layout_Store',
+    STORE_NAME: 'layout_settings',
+    _dbPromise: null,
+
+    getDb() {
+      if (!this._dbPromise) {
+        this._dbPromise = new Promise((resolve, reject) => {
+          const req = indexedDB.open(this.DB_NAME, 1);
+          req.onupgradeneeded = e => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(this.STORE_NAME)) {
+              db.createObjectStore(this.STORE_NAME, { keyPath: 'docKey' });
+            }
+          };
+          req.onsuccess = e => resolve(e.target.result);
+          req.onerror = e => reject(e.target.error);
+        });
+      }
+      return this._dbPromise;
+    },
+
+    async set(docKey, key, val) {
+      if (!docKey) return;
+      const normKey = docKey.toLowerCase();
+      try {
+        const db = await this.getDb();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(this.STORE_NAME, 'readwrite');
+          const store = tx.objectStore(this.STORE_NAME);
+          const getReq = store.get(normKey);
+          getReq.onsuccess = () => {
+            const record = getReq.result || { docKey: normKey, settings: {} };
+            if (!record.settings) record.settings = {};
+            record.settings[key] = val;
+            record.updatedAt = Date.now();
+            store.put(record);
+          };
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = e => reject(e.target.error);
+        });
+      } catch (err) {
+        console.warn('LayoutStore set error:', err);
+      }
+    },
+
+    async getAll(docKey) {
+      if (!docKey) return null;
+      const normKey = docKey.toLowerCase();
+      try {
+        const db = await this.getDb();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(this.STORE_NAME, 'readonly');
+          const store = tx.objectStore(this.STORE_NAME);
+          const req = store.get(normKey);
+          req.onsuccess = () => resolve(req.result ? req.result.settings : null);
+          req.onerror = e => reject(e.target.error);
+        });
+      } catch (err) {
+        console.warn('LayoutStore getAll error:', err);
+        return null;
+      }
+    },
+
+    async remove(docKey) {
+      if (!docKey) return;
+      try {
+        const db = await this.getDb();
+        const tx = db.transaction(this.STORE_NAME, 'readwrite');
+        tx.objectStore(this.STORE_NAME).delete(docKey.toLowerCase());
+      } catch (e) {}
+    }
+  };
+
+  // ==========================================================================
+  // IndexedDB Storage for Protected & Locked Documents (Issue 3)
+  // Per-file password & lock state storage that cannot overwrite other files
+  // ==========================================================================
+  const FileLockStore = {
+    DB_NAME: 'DocFlow_Lock_Store',
+    STORE_NAME: 'locked_files',
+    _dbPromise: null,
+
+    getDb() {
+      if (!this._dbPromise) {
+        this._dbPromise = new Promise((resolve, reject) => {
+          const req = indexedDB.open(this.DB_NAME, 1);
+          req.onupgradeneeded = e => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(this.STORE_NAME)) {
+              db.createObjectStore(this.STORE_NAME, { keyPath: 'name' });
+            }
+          };
+          req.onsuccess = e => resolve(e.target.result);
+          req.onerror = e => reject(e.target.error);
+        });
+      }
+      return this._dbPromise;
+    },
+
+    async lock(name, password) {
+      if (!name) return;
+      const normName = name.toLowerCase().trim();
+      const pin = String(password || '').trim();
+      try {
+        const db = await this.getDb();
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(this.STORE_NAME, 'readwrite');
+          const store = tx.objectStore(this.STORE_NAME);
+          store.put({
+            name: normName,
+            password: pin,
+            isLocked: true,
+            lockedAt: Date.now()
+          });
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = e => reject(e.target.error);
+        });
+      } catch (err) {
+        console.warn('FileLockStore save error:', err);
+      }
+      try {
+        const cache = JSON.parse(localStorage.getItem('docflow_locked_docs') || '{}');
+        cache[normName] = { isLocked: true, password: pin };
+        localStorage.setItem('docflow_locked_docs', JSON.stringify(cache));
+      } catch (_) {}
+    },
+
+    async unlock(name) {
+      if (!name) return;
+      const normName = name.toLowerCase().trim();
+      try {
+        const db = await this.getDb();
+        const tx = db.transaction(this.STORE_NAME, 'readwrite');
+        tx.objectStore(this.STORE_NAME).delete(normName);
+      } catch (e) {}
+      try {
+        const cache = JSON.parse(localStorage.getItem('docflow_locked_docs') || '{}');
+        delete cache[normName];
+        localStorage.setItem('docflow_locked_docs', JSON.stringify(cache));
+      } catch (_) {}
+    },
+
+    async get(name) {
+      if (!name) return null;
+      const normName = name.toLowerCase().trim();
+      try {
+        const db = await this.getDb();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(this.STORE_NAME, 'readonly');
+          const store = tx.objectStore(this.STORE_NAME);
+          const req = store.get(normName);
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => resolve(null);
+        });
+      } catch (e) {
+        try {
+          const cache = JSON.parse(localStorage.getItem('docflow_locked_docs') || '{}');
+          return cache[normName] || null;
+        } catch (_) {
+          return null;
+        }
+      }
+    },
+
+    async verifyPassword(name, enteredPassword) {
+      if (!name) return false;
+      const entry = await this.get(name);
+      if (!entry || !entry.isLocked) return true;
+      const expected = String(entry.password || '').trim();
+      const entered = String(enteredPassword || '').trim();
+      return expected === entered;
+    },
+
+    isLockedSync(name) {
+      if (!name) return false;
+      try {
+        const cache = JSON.parse(localStorage.getItem('docflow_locked_docs') || '{}');
+        const entry = cache[name.toLowerCase().trim()];
+        return !!(entry && entry.isLocked);
+      } catch (_) {
+        return false;
+      }
+    }
+  };
+
+  // Helper to persist layout setting to active tab & IndexedDB
+  async function updateLayoutSetting(key, val) {
+    const activeTab = window.DocFlow.UI?.Tabs?.get?.(window.DocFlow.UI.Tabs.activeId);
+    const docKey = activeTab ? (activeTab.name || activeTab.id) : '__global_layout__';
+    if (activeTab) {
+      if (!activeTab.layoutSettings) activeTab.layoutSettings = {};
+      activeTab.layoutSettings[key] = val;
+      window.DocFlow.UI?.Tabs?.save?.();
+    }
+    await LayoutStore.set(docKey, key, val);
+    await LayoutStore.set('__global_layout__', key, val);
+  }
+
+  // Helper to apply saved layout settings to the DOM
+  function applyLayoutSettings(settings) {
+    if (!settings) return;
+    const page = $('.editor-page');
+    const wrap = $('#editorWrap');
+    const editor = $('#editor');
+    if (!page || !editor) return;
+
+    // 1. Margin
+    if (settings.margin) {
+      if (typeof settings.margin === 'string') {
+        if (typeof applyMarginPreset === 'function') applyMarginPreset(settings.margin, false);
+        $$('#marginPopover .margin-opt-item').forEach(el => {
+          el.classList.toggle('active', el.dataset.margin === settings.margin);
+        });
+      } else if (typeof settings.margin === 'object') {
+        const { top = 72, bottom = 72, left = 72, right = 72 } = settings.margin;
+        page.style.padding = `${top}px ${right}px ${bottom}px ${left}px`;
+      }
+    }
+
+    // 2. Size
+    if (settings.size) {
+      if (typeof settings.size === 'string') {
+        if (typeof applyPageSize === 'function') applyPageSize(settings.size, false);
+        $$('#pageSizePopover .margin-opt-item[data-size]').forEach(el => {
+          el.classList.toggle('active', el.dataset.size === settings.size);
+        });
+      } else if (typeof settings.size === 'object') {
+        const { width = 816, height = 1056 } = settings.size;
+        page.style.maxWidth = `${width}px`;
+        page.style.width = `${width}px`;
+        page.style.minHeight = `${height}px`;
+      }
+    }
+
+    // 3. Page Color
+    if (settings.pageColor) {
+      const color = settings.pageColor;
+      const bgInput = $('#layoutPageBgInput');
+      if (bgInput) bgInput.value = color;
+      document.documentElement.style.setProperty('--excel-sheet-bg', color);
+      page.style.setProperty('background-color', color, 'important');
+      page.style.setProperty('--excel-sheet-bg', color);
+      page.style.backgroundColor = color;
+      if (wrap && wrap.classList.contains('full-size-active')) {
+        wrap.style.setProperty('background-color', color, 'important');
+      }
+      const excelContainer = document.querySelector('.excel-spreadsheet-container');
+      if (excelContainer) {
+        excelContainer.style.setProperty('background-color', color, 'important');
+        excelContainer.style.setProperty('--excel-sheet-bg', color);
+      }
+    }
+
+    // 4. Spacing (Paragraph Spacing)
+    if (settings.spacing) {
+      editor.classList.remove('para-spacing-tight', 'para-spacing-relaxed', 'para-spacing-double');
+      if (settings.spacing !== 'normal') editor.classList.add(`para-spacing-${settings.spacing}`);
+      $$('#paraSpacingPopover .margin-opt-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.spacing === settings.spacing);
+      });
+    }
+
+    // 5. Padding (Page Canvas Padding)
+    if (settings.padding) {
+      const padMap = { compact: '36px 36px', normal: '72px 72px', spacious: '96px 96px', edge: '12px 16px' };
+      page.style.padding = padMap[settings.padding] || settings.padding;
+      $$('#pagePaddingPopover .margin-opt-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.padding === settings.padding);
+      });
+    }
+
+    // 6. Page Border
+    if (settings.pageBorder) {
+      page.classList.remove('page-border-box', 'page-border-shadow', 'page-border-double');
+      if (settings.pageBorder === 'box') page.classList.add('page-border-box');
+      else if (settings.pageBorder === 'shadow') page.classList.add('page-border-shadow');
+      else if (settings.pageBorder === 'double') page.classList.add('page-border-double');
+      else if (typeof settings.pageBorder === 'object') {
+        page.style.border = `${settings.pageBorder.width || '2px'} ${settings.pageBorder.style || 'solid'} ${settings.pageBorder.color || '#3b82f6'}`;
+        if (settings.pageBorder.radius) page.style.borderRadius = settings.pageBorder.radius;
+      }
+      $$('#pageBorderPopover .margin-opt-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.border === settings.pageBorder);
+      });
+    }
+
+    // 7. Background Image
+    if (settings.bgImage) {
+      const curSlideCard = document.querySelector('#editor .pptx-slide-wrapper .pptx-slide-card') || document.querySelector('#editor .pptx-slide-card');
+      if (curSlideCard) {
+        curSlideCard.style.backgroundImage = `url(${settings.bgImage})`;
+        curSlideCard.style.backgroundSize = 'cover';
+        curSlideCard.style.backgroundPosition = 'center';
+        curSlideCard.style.backgroundRepeat = 'no-repeat';
+      } else {
+        page.style.backgroundImage = `url(${settings.bgImage})`;
+        page.style.backgroundSize = 'cover';
+        page.style.backgroundPosition = 'center';
+        page.style.backgroundRepeat = 'no-repeat';
+      }
+    }
+
+    // 8. Slide Color
+    if (settings.slideColor) {
+      const curSlideCard = document.querySelector('#editor .pptx-slide-wrapper .pptx-slide-card') || document.querySelector('#editor .pptx-slide-card');
+      if (curSlideCard) {
+        curSlideCard.style.backgroundColor = settings.slideColor;
+      }
+      const pptColorInput = $('#pptBgColorInput');
+      if (pptColorInput) pptColorInput.value = settings.slideColor;
+    }
+
+    // 9. Slide Theme
+    if (settings.slideTheme) {
+      const PPT_THEMES_DICT = {
+        ocean: { bg: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)', text: '#f8fafc', border: '1px solid #3b82f6' },
+        emerald: { bg: 'linear-gradient(135deg, #064e3b 0%, #047857 100%)', text: '#f0fdf4', border: '1px solid #10b981' },
+        sunset: { bg: 'linear-gradient(135deg, #7c2d12 0%, #ea580c 100%)', text: '#fff7ed', border: '1px solid #f97316' },
+        royal: { bg: 'linear-gradient(135deg, #3b0764 0%, #7e22ce 100%)', text: '#faf5ff', border: '1px solid #a855f7' },
+        obsidian: { bg: 'linear-gradient(135deg, #18181b 0%, #27272a 100%)', text: '#f4f4f5', border: '1px solid #3f3f46' },
+        monochrome: { bg: '#ffffff', text: '#0f172a', border: '2px solid #0f172a' }
+      };
+      const theme = typeof settings.slideTheme === 'string' ? PPT_THEMES_DICT[settings.slideTheme] : settings.slideTheme;
+      if (theme) {
+        const curSlideCard = document.querySelector('#editor .pptx-slide-wrapper .pptx-slide-card') || document.querySelector('#editor .pptx-slide-card');
+        if (curSlideCard) {
+          curSlideCard.style.background = theme.bg;
+          curSlideCard.style.color = theme.text;
+          curSlideCard.style.border = theme.border;
+          curSlideCard.querySelectorAll('h1, h2, h3, h4, .slide-title-box, .slide-content-box').forEach(el => el.style.color = theme.text);
+        }
+      }
+    }
+  }
+
+  // Load from tab / IndexedDB and apply
+  function applyPersistedLayoutSettings(tab) {
+    if (tab && tab.layoutSettings) {
+      applyLayoutSettings(tab.layoutSettings);
+    }
+    const docKey = tab ? (tab.name || tab.id) : '__global_layout__';
+    LayoutStore.getAll(docKey).then(saved => {
+      if (saved && Object.keys(saved).length > 0) {
+        if (tab) {
+          tab.layoutSettings = Object.assign({}, tab.layoutSettings || {}, saved);
+          applyLayoutSettings(tab.layoutSettings);
+        } else {
+          applyLayoutSettings(saved);
+        }
+      } else {
+        LayoutStore.getAll('__global_layout__').then(glob => {
+          if (glob && Object.keys(glob).length > 0) {
+            if (tab) {
+              tab.layoutSettings = Object.assign({}, tab.layoutSettings || {}, glob);
+              applyLayoutSettings(tab.layoutSettings);
+            } else {
+              applyLayoutSettings(glob);
+            }
+          }
+        }).catch(() => {});
+      }
+    }).catch(err => console.warn('LayoutStore load error:', err));
+  }
+  window.DocFlow.applyPersistedLayoutSettings = applyPersistedLayoutSettings;
+
+  // ==========================================================================
   // Recent Files Manager (Persistent, Individual Delete, Clear All, Reopen)
   // ==========================================================================
   const Recent = {
@@ -406,6 +777,17 @@
     openDocument(item) {
       if (!item) return;
 
+      // Check if document is locked (Issue 3)
+      const isLocked = item.isLocked || FileLockStore.isLockedSync(item.name);
+      if (isLocked) {
+        openUnlockDocModal(item);
+        return;
+      }
+
+      this._proceedOpenDocument(item);
+    },
+
+    _proceedOpenDocument(item) {
       // Update timestamp and bring to top of recents when reopened (Issue 1)
       item.timestamp = Date.now();
       let list = this.getAll().filter(d => d.name.toLowerCase() !== item.name.toLowerCase());
@@ -479,6 +861,11 @@
         else if (ext === 'html' || ext === 'htm') iconHtml = '<i class="fas fa-file-code" style="color:#e34c26;"></i>';
         else if (ext === 'md') iconHtml = '<i class="fab fa-markdown" style="color:#38bdf8;"></i>';
 
+        const isLocked = item.isLocked || FileLockStore.isLockedSync(item.name);
+        const lockBadgeHtml = isLocked
+          ? `<span class="recent-lock-tag" title="Password Protected Document" style="display:inline-flex;align-items:center;gap:3px;color:#e11d48;font-size:11px;font-weight:700;margin-left:8px;background:rgba(225,29,72,0.1);padding:1px 6px;border-radius:4px;border:1px solid rgba(225,29,72,0.25);"><i class="fas fa-lock"></i> Locked</span>`
+          : '';
+
         const sizeVal = item.size || (item.content ? new Blob([item.content]).size : 1024);
         const sizeStr = formatFileSize(sizeVal);
         const timeStr = formatRelativeTime(item.timestamp);
@@ -488,9 +875,15 @@
           <button class="recent-item-del-btn" title="Remove from recents" aria-label="Remove ${escHtml(item.name)} from recents">
             <i class="fas fa-trash-alt"></i>
           </button>
-          <div class="recent-item-icon">${iconHtml}</div>
+          <div class="recent-item-icon" style="position:relative;">
+            ${iconHtml}
+            ${isLocked ? '<i class="fas fa-lock" style="position:absolute;bottom:-2px;right:-4px;font-size:10px;color:#e11d48;background:var(--bg-primary,#fff);border-radius:50%;padding:1px;" title="Locked"></i>' : ''}
+          </div>
           <div class="recent-item-info">
-            <div class="recent-item-title" title="${escHtml(item.name)}">${escHtml(item.name)}</div>
+            <div class="recent-item-title" title="${escHtml(item.name)}" style="display:flex;align-items:center;">
+              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(item.name)}</span>
+              ${lockBadgeHtml}
+            </div>
             <div class="recent-item-meta">
               <span>${escHtml(item.type || ext.toUpperCase() || 'DOC')}</span> &bull; 
               <span class="recent-item-size" style="font-weight:600;color:var(--accent);">${sizeStr}</span> &bull; 
@@ -573,7 +966,8 @@
         const sizeVal = item.size || (item.content ? new Blob([item.content]).size : 1024);
         const sizeStr = formatFileSize(sizeVal);
         const timeStr = formatRelativeTime(item.timestamp || item.createdAt);
-        const lockIcon = item.isLocked ? '<i class="fas fa-lock" style="color:var(--accent);font-size:10px;margin-left:4px;"></i>' : '';
+        const isLocked = item.isLocked || FileLockStore.isLockedSync(item.name);
+        const lockIcon = isLocked ? '<i class="fas fa-lock" style="color:#e11d48;font-size:11px;margin-left:6px;" title="Password Protected Document"></i>' : '';
 
         card.innerHTML = `
           <div class="recent-tab-item-icon">${iconHtml}</div>
@@ -1749,6 +2143,7 @@
         page.style.borderRadius = radius;
 
         window.DocFlow.Editor?.notifyChange();
+        updateLayoutSetting('pageBorder', { style: lineType, width, color, radius });
         showToast(`Custom border (${width} ${lineType}) applied`, 'success');
       }
       closeModal('#customPageBorderModal');
@@ -1762,6 +2157,7 @@
         page.style.borderRadius = '';
         page.classList.remove('page-border-box', 'page-border-shadow', 'page-border-double');
         window.DocFlow.Editor?.notifyChange();
+        updateLayoutSetting('pageBorder', 'none');
         showToast('Page border removed', 'info');
       }
       closeModal('#customPageBorderModal');
@@ -6288,12 +6684,13 @@
       const page = $('.editor-page');
       if (page) {
         page.style.padding = `${top}px ${right}px ${bottom}px ${left}px`;
+        updateLayoutSetting('margin', { top, bottom, left, right });
         showToast(`Custom margins applied: ${top}px, ${right}px, ${bottom}px, ${left}px`, 'success');
       }
       closeModal('#customMarginModal');
     });
 
-    function applyMarginPreset(type) {
+    function applyMarginPreset(type, save = true) {
       const page = $('.editor-page');
       if (!page) return;
       switch (type) {
@@ -6326,6 +6723,7 @@
           showToast('Margins: Zero / Full Width', 'info');
           break;
       }
+      if (save) updateLayoutSetting('margin', type);
     }
 
     // Page Size Popover
@@ -6356,7 +6754,7 @@
       });
     }
 
-    function applyPageSize(size) {
+    function applyPageSize(size, save = true) {
       const page = $('.editor-page');
       if (!page) return;
       const wrap = $('#editorWrap');
@@ -6364,13 +6762,17 @@
       const isExcel = !!excelContainer || wrap?.classList.contains('is-excel-mode');
 
       if (size === 'full') {
-        if (wrap) wrap.classList.add('full-size-active');
+        if (wrap) {
+          wrap.classList.add('full-size-active');
+          wrap.style.backgroundColor = '#ffffff';
+        }
         page.style.maxWidth = '100%';
         page.style.width = '100%';
         page.style.minHeight = '100%';
-        page.style.height = '100%';
+        page.style.height = 'auto'; // Fix for Issue 1b: allows full expansion, no dull/grey lower half
+        page.style.backgroundColor = '#ffffff';
         page.style.margin = '0';
-        page.style.padding = isExcel ? '0' : '';
+        page.style.padding = isExcel ? '0' : '40px 60px';
         if (excelContainer) {
           excelContainer.style.maxWidth = '100%';
           excelContainer.style.width = '100%';
@@ -6381,10 +6783,14 @@
           excelContainer.style.boxShadow = 'none';
         }
         showToast('Paper Size: Full Page (Full width & height edge-to-edge)', 'info');
+        if (save) updateLayoutSetting('size', 'full');
         return;
       }
 
-      if (wrap) wrap.classList.remove('full-size-active');
+      if (wrap) {
+        wrap.classList.remove('full-size-active');
+        wrap.style.backgroundColor = '';
+      }
       page.style.width = '';
       page.style.height = '';
       page.style.padding = '';
@@ -6465,6 +6871,8 @@
           break;
       }
 
+      if (save && size !== 'custom') updateLayoutSetting('size', size);
+
       // Excel container paper sizing (Problem 1.10)
       if (excelContainer) {
         excelContainer.style.maxWidth = page.style.maxWidth;
@@ -6496,6 +6904,7 @@
           excelContainer.style.width = `${w}px`;
           excelContainer.style.margin = '20px auto';
         }
+        updateLayoutSetting('size', { width: w, height: h });
         showToast(`Custom Page Size applied: ${w}px × ${h}px`, 'success');
       }
       closeModal('#customPageSizeModal');
@@ -6769,6 +7178,7 @@
           $$('#paraSpacingPopover .margin-opt-item').forEach(el => el.classList.remove('active'));
           item.classList.add('active');
           showToast(`Paragraph spacing: ${spacing}`, 'info');
+          updateLayoutSetting('spacing', spacing);
           window.DocFlow.Editor?.notifyChange();
         }
         $('#paraSpacingPopover')?.classList.remove('show');
@@ -6792,6 +7202,7 @@
           $$('#pagePaddingPopover .margin-opt-item').forEach(el => el.classList.remove('active'));
           item.classList.add('active');
           showToast(`Page padding: ${pad}`, 'info');
+          updateLayoutSetting('padding', pad);
           window.DocFlow.Editor?.notifyChange();
         }
         $('#pagePaddingPopover')?.classList.remove('show');
@@ -7146,6 +7557,10 @@
         page.style.setProperty('--excel-sheet-bg', color);
         page.style.backgroundColor = color;
       }
+      const wrap = $('#editorWrap');
+      if (wrap && wrap.classList.contains('full-size-active')) {
+        wrap.style.setProperty('background-color', color, 'important');
+      }
       const excelContainer = document.querySelector('.excel-spreadsheet-container');
       if (excelContainer) {
         excelContainer.style.setProperty('background-color', color, 'important');
@@ -7161,10 +7576,12 @@
           gridTable.style.setProperty('--excel-sheet-bg', color);
         }
       }
+      updateLayoutSetting('pageColor', color);
     });
     $('#layoutPageBgInput')?.addEventListener('change', e => {
       window.DocFlow.Editor?.saveSnapshot?.(true);
       window.DocFlow.Editor?.notifyChange?.();
+      updateLayoutSetting('pageColor', e.target.value);
       showToast(`Page background color set to ${e.target.value}`, 'info');
     });
 
@@ -7199,6 +7616,7 @@
           $$('#pageBorderPopover .margin-opt-item').forEach(el => el.classList.remove('active'));
           item.classList.add('active');
           window.DocFlow.Editor?.notifyChange();
+          updateLayoutSetting('pageBorder', borderStyle);
           showToast(`Page Border: ${borderStyle}`, 'info');
         }
         $('#pageBorderPopover')?.classList.remove('show');
@@ -7494,67 +7912,154 @@
     }
     window.DocFlow.updateDocLockUI = updateDocLockUI;
 
+    let pendingLockedItemToOpen = null;
+
+    function openUnlockDocModal(itemOrTab) {
+      if (!itemOrTab) return;
+      pendingLockedItemToOpen = itemOrTab;
+      const docName = itemOrTab.name || 'Document';
+      const pinInput = $('#docUnlockPinInput');
+      if (pinInput) pinInput.value = '';
+      const desc = $('#docUnlockModal p') || $('#docUnlockModalDesc');
+      if (desc) desc.textContent = `Enter password or PIN to unlock and open "${docName}":`;
+      window.DocFlow.UI?.openModal?.('#docUnlockModal');
+      setTimeout(() => pinInput?.focus(), 50);
+    }
+
     $('#viewProtectDocBtn')?.addEventListener('click', () => {
       const activeTab = window.DocFlow.UI?.Tabs?.get?.(window.DocFlow.UI.Tabs.activeId);
-      if (!activeTab) {
-        showToast('Open a document first to lock or protect it', 'warning');
+      if (!activeTab || window.DocFlow.currentMode === 'empty') {
+        showToast('Please open a document first to lock or protect it', 'warning');
         return;
       }
-      if (activeTab.isLocked) {
-        openUnlockDocModal(activeTab);
-      } else {
-        const pinIn = $('#docProtectPinInput');
-        if (pinIn) pinIn.value = '';
-        window.DocFlow.UI?.openModal?.('#docProtectModal');
-      }
+      const pinIn = $('#docProtectPinInput');
+      if (pinIn) pinIn.value = '';
+      window.DocFlow.UI?.openModal?.('#docProtectModal');
+      setTimeout(() => pinIn?.focus(), 50);
     });
 
     $('#docProtectCloseBtn')?.addEventListener('click', () => window.DocFlow.UI?.closeModal?.('#docProtectModal'));
     $('#docProtectCancelBtn')?.addEventListener('click', () => window.DocFlow.UI?.closeModal?.('#docProtectModal'));
 
-    $('#docProtectConfirmBtn')?.addEventListener('click', () => {
-      const activeTab = window.DocFlow.UI?.Tabs?.get?.(window.DocFlow.UI.Tabs.activeId);
-      if (!activeTab) return;
-      const pin = $('#docProtectPinInput')?.value.trim() || '';
-      activeTab.isLocked = true;
-      activeTab.lockPin = pin;
-      window.DocFlow.UI?.Tabs?.saveCurrent?.();
-      window.DocFlow.UI?.Tabs?.save?.();
-      window.DocFlow.UI?.closeModal?.('#docProtectModal');
-      updateDocLockUI(activeTab);
-      showToast('Document protected and locked! Editing is now disabled.', 'success');
+    $('#docProtectPinInput')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        $('#docProtectConfirmBtn')?.click();
+      }
     });
 
-    function openUnlockDocModal(tab) {
-      if (!tab) return;
-      const pinInput = $('#docUnlockPinInput');
-      if (pinInput) pinInput.value = '';
-      window.DocFlow.UI?.openModal?.('#docUnlockModal');
-    }
+    $('#docProtectConfirmBtn')?.addEventListener('click', async () => {
+      const activeTab = window.DocFlow.UI?.Tabs?.get?.(window.DocFlow.UI.Tabs.activeId);
+      if (!activeTab || window.DocFlow.currentMode === 'empty') {
+        showToast('Please open a document first to lock or protect it', 'warning');
+        window.DocFlow.UI?.closeModal?.('#docProtectModal');
+        return;
+      }
+      const pin = $('#docProtectPinInput')?.value.trim() || '';
+      const docName = activeTab.name;
+
+      // 1. Lock in FileLockStore (IndexedDB per-file password storage - Issue 3)
+      await FileLockStore.lock(docName, pin);
+
+      // 2. Mark in Recent Documents list
+      const list = Recent.getAll();
+      const rec = list.find(d => d.name.toLowerCase() === docName.toLowerCase());
+      if (rec) {
+        rec.isLocked = true;
+        rec.hasPassword = !!pin;
+        Recent.saveAll(list);
+      } else {
+        Recent.add({
+          name: docName,
+          content: activeTab.content || $('#editor')?.innerHTML || '<p><br></p>',
+          type: activeTab.fileType || activeTab.type,
+          isLocked: true,
+          hasPassword: !!pin
+        });
+      }
+
+      // 3. Save tab content
+      window.DocFlow.UI?.Tabs?.saveCurrent?.();
+
+      // 4. Close the modal
+      window.DocFlow.UI?.closeModal?.('#docProtectModal');
+
+      // 5. Close the active file immediately upon lock (Issue 3)
+      window.DocFlow.UI?.Tabs?.close?.(activeTab.id, true);
+
+      // 6. Return to home screen and render recent files showing lock icon
+      window.DocFlow.switchMode?.('empty');
+      window.DocFlow.switchRibbonTab?.('home');
+      Recent.render();
+      Recent.renderDropdown();
+
+      // 7. Show correct notification (Issue 3)
+      showToast(`Document "${docName}" locked and protected successfully. File closed.`, 'success');
+    });
 
     $('#docUnlockBannerBtn')?.addEventListener('click', () => {
       const activeTab = window.DocFlow.UI?.Tabs?.get?.(window.DocFlow.UI.Tabs.activeId);
       openUnlockDocModal(activeTab);
     });
 
-    $('#docUnlockCloseBtn')?.addEventListener('click', () => window.DocFlow.UI?.closeModal?.('#docUnlockModal'));
-    $('#docUnlockCancelBtn')?.addEventListener('click', () => window.DocFlow.UI?.closeModal?.('#docUnlockModal'));
+    $('#docUnlockCloseBtn')?.addEventListener('click', () => {
+      window.DocFlow.UI?.closeModal?.('#docUnlockModal');
+      pendingLockedItemToOpen = null;
+    });
+    $('#docUnlockCancelBtn')?.addEventListener('click', () => {
+      window.DocFlow.UI?.closeModal?.('#docUnlockModal');
+      pendingLockedItemToOpen = null;
+    });
 
-    $('#docUnlockConfirmBtn')?.addEventListener('click', () => {
+    $('#docUnlockPinInput')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        $('#docUnlockConfirmBtn')?.click();
+      }
+    });
+
+    $('#docUnlockConfirmBtn')?.addEventListener('click', async () => {
       const activeTab = window.DocFlow.UI?.Tabs?.get?.(window.DocFlow.UI.Tabs.activeId);
-      if (!activeTab) return;
-      const entered = $('#docUnlockPinInput')?.value.trim() || '';
-      if (activeTab.lockPin && entered !== activeTab.lockPin) {
-        showToast('Incorrect password / PIN. Document remains locked.', 'error');
+      const targetDoc = pendingLockedItemToOpen || activeTab;
+      if (!targetDoc) {
+        window.DocFlow.UI?.closeModal?.('#docUnlockModal');
         return;
       }
-      activeTab.isLocked = false;
-      delete activeTab.lockPin;
-      window.DocFlow.UI?.Tabs?.saveCurrent?.();
-      window.DocFlow.UI?.Tabs?.save?.();
+      const docName = targetDoc.name;
+      const entered = $('#docUnlockPinInput')?.value.trim() || '';
+
+      const isCorrect = await FileLockStore.verifyPassword(docName, entered);
+      if (!isCorrect) {
+        showToast('Incorrect password. Document remains locked.', 'error');
+        $('#docUnlockPinInput')?.focus();
+        return;
+      }
+
+      // Correct password: unlock and open
+      await FileLockStore.unlock(docName);
+      targetDoc.isLocked = false;
+      if (targetDoc.lockPin) delete targetDoc.lockPin;
+
+      // Update in Recent list
+      const recents = Recent.getAll();
+      const rec = recents.find(d => d.name.toLowerCase() === docName.toLowerCase());
+      if (rec) {
+        rec.isLocked = false;
+        Recent.saveAll(recents);
+      }
+      Recent.render();
+      Recent.renderDropdown();
+
       window.DocFlow.UI?.closeModal?.('#docUnlockModal');
-      updateDocLockUI(activeTab);
-      showToast('Document unlocked successfully! Editing restored.', 'success');
+      showToast(`Document "${docName}" unlocked successfully!`, 'success');
+
+      if (pendingLockedItemToOpen) {
+        const toOpen = pendingLockedItemToOpen;
+        pendingLockedItemToOpen = null;
+        Recent._proceedOpenDocument(toOpen);
+      } else if (activeTab) {
+        updateDocLockUI(activeTab);
+      }
     });
 
     const splitDividerEl = $('#splitDividerBar');
@@ -7701,7 +8206,8 @@
 
     $$('#pptSlideThemePopover .spacing-opt-item[data-ppt-theme]').forEach(item => {
       item.addEventListener('click', () => {
-        const theme = PPT_THEMES_DICT[item.dataset.pptTheme];
+        const themeKey = item.dataset.pptTheme;
+        const theme = PPT_THEMES_DICT[themeKey];
         if (theme) {
           window.DocFlow.Editor?.saveSnapshot?.();
           const slides = document.querySelectorAll('#editor .pptx-slide-wrapper');
@@ -7715,6 +8221,7 @@
             window.DocFlow.Editor?.notifyChange();
             showToast(`Theme applied: ${item.textContent.trim()}`, 'success');
           }
+          updateLayoutSetting('slideTheme', themeKey);
         }
         $('#pptSlideThemePopover')?.classList.remove('show');
       });
@@ -7731,6 +8238,7 @@
         card.style.backgroundColor = e.target.value;
         window.DocFlow.Editor?.notifyChange();
       }
+      updateLayoutSetting('slideColor', e.target.value);
     });
     $('#pptBgColorInput')?.addEventListener('change', e => {
       const slides = document.querySelectorAll('#editor .pptx-slide-wrapper');
@@ -7741,6 +8249,7 @@
       } else {
         showToast('Select a presentation slide first', 'info');
       }
+      updateLayoutSetting('slideColor', e.target.value);
     });
 
     $('#pptBgImageBtn')?.addEventListener('click', e => {
@@ -7772,6 +8281,7 @@
           window.DocFlow.Editor?.notifyChange();
           showToast('Slide background image applied from device', 'success');
         }
+        updateLayoutSetting('bgImage', ev.target.result);
       };
       reader.readAsDataURL(file);
       e.target.value = '';
@@ -7800,6 +8310,7 @@
           window.DocFlow.Editor?.notifyChange();
           showToast('Online slide background image applied', 'success');
         }
+        updateLayoutSetting('bgImage', url);
         window.DocFlow.UI?.closeModal?.('#pptOnlineBgModal');
       } else {
         showToast('Please enter an image URL', 'warning');
@@ -7815,6 +8326,7 @@
         window.DocFlow.Editor?.notifyChange();
         showToast('Slide background image removed', 'info');
       }
+      updateLayoutSetting('bgImage', null);
       $('#pptBgImagePopover')?.classList.remove('show');
     });
 
@@ -11251,6 +11763,7 @@
         const activeTab = window.DocFlow.UI.Tabs.get(window.DocFlow.UI.Tabs.activeId);
         if (activeTab) {
           window.DocFlow.UI.Tabs.activateTab(activeTab);
+          applyPersistedLayoutSettings(activeTab);
         }
       } else {
         window.DocFlow.UI.Tabs.activeId = null;
@@ -11260,6 +11773,8 @@
       }
       window.DocFlow.UI.Tabs.render();
       setupExcelInteractions();
+    } else {
+      applyPersistedLayoutSettings(null);
     }
 
     // 8. Save before window unloads

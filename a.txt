@@ -1,0 +1,20 @@
+1.for view menu bar -> 
+                       a) Fix the Protect and Lock functionality. The file is being locked correctly, but when the user attempts to unlock it, the password prompt does not appear. Resolve this issue so that users can lock and unlock files properly. Ensure that the password prompt is displayed correctly when unlocking a protected file, the password container appears as expected, and the appropriate notification is shown for each action.
+
+                       b)Update the comment functionality so that comments are displayed only when the user clicks on or places the cursor over the commented text. Currently, comments appear when the user hovers over the commented text. Change this behavior so that the comment is shown only when the user clicks on the commented text or places the cursor on it, ensuring that comments are displayed correctly and the interaction works as expected.
+                       And the below line of commented text ,only highlight the text.And not remove its other functionality.
+2.Fix the document tab list rendering issue to ensure it displays correctly and consistently whenever a user opens an existing document or creates a new one. Sometimes, the tab list does not render properly, so identify and resolve the underlying issue to ensure the tabs are initialized, updated, and displayed reliably whenever a document is opened or created.
+
+3.for insert menu bar->
+                      a)Fix the note functionality across all supported document formats, including Excel, HTML, Markdown, PDF, DOCX, and PPTX. Notes are inserted correctly, but users cannot change their background color or type and edit text inside them. Resolve these issues so users can change the note’s background color and freely interact with its content, including typing text and using Backspace, Undo, Redo, Select All, and Enter. Ensure that all editing actions work correctly and consistently across every supported document format. Additionally, make sure that the selected note background color is preserved and displayed correctly when the document is printed.
+                      And user exit when click enter ,so fix this also .And preserve other functionality of this for all document only change these.
+
+                      b)Update the shape functionality to support text editing, similar to Microsoft Word. Add a “Text” button to the floating toolbar that appears only when a shape is selected. When the user clicks this button, place the text cursor inside the shape so they can easily type and edit text directly within it. Ensure that standard keyboard actions, including Backspace, Enter, Undo, Redo, and Select All, work correctly while editing the text. Automatically adjust the text color based on the shape’s background color to maintain proper contrast and readability. The “Text” button must appear only for shapes and must not be displayed for images, GIFs, charts, or any other object types. Ensure that text remains properly positioned, editable, and visible within the shape, consistent with the behavior of shapes in Microsoft Word.
+
+
+4.When a user saves a document in any file format, its original formatting must be preserved without any loss or corruption. Currently, elements such as images, hyperlinks, tables, GIFs, shapes, charts, notes, comments, and other document components are getting destroyed or replaced with random numbers or incorrect content. Hyperlinks should retain their original blue color and underlining, where applicable. The saved document must maintain its complete layout, formatting, styling, alignment, and structure exactly as they appear on the page. Please fix this issue to ensure that the entire document is saved correctly in the selected file format, with all content and formatting preserved, regardless of the file extension.
+
+**Important for ai model **
+Not merge and  remove the functionality of any other documents ,if they are working properly 
+not change any other keyboard functionality for any document if not tell by me to change 
+not break other ctrl+a (select all ) functionality of any document specially excel

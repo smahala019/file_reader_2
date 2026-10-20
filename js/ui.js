@@ -392,6 +392,7 @@
             window.DocFlow?.switchRibbonTab?.('html');
           }
           window.DocFlow?.updateWordOnlyTools?.(tab);
+          window.DocFlow?.applyPersistedLayoutSettings?.(tab);
         });
 
         if (!tab.content || tab.content === '<p><br></p>') {
@@ -650,7 +651,8 @@
           fileType: t.fileType,
           type: t.type,
           modified: false,
-          scroll: t.scroll
+          scroll: t.scroll,
+          layoutSettings: t.layoutSettings || null
         }));
         localStorage.setItem('df-tabs', JSON.stringify(meta));
         localStorage.setItem('df-active', this.activeId || '');
@@ -701,6 +703,7 @@
             modified: false,
             scroll: m.scroll || 0,
             content,
+            layoutSettings: m.layoutSettings || null,
             pdfData: null,
             pdfDoc: null
           };

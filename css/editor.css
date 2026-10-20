@@ -3254,24 +3254,27 @@ body.has-split-window .split-mirror-pane {
   min-height: 400px;
 }
 
-/* 14. Full Size Editor Layout Mode (Issue 6 / 3) */
+/* 14. Full Size Editor Layout Mode (Issue 1b & Microsoft Word Full Canvas) */
 .editor-wrap.full-size-active {
   padding: 0 !important;
   width: 100% !important;
   height: 100% !important;
   align-items: stretch !important;
+  background: #ffffff !important;
 }
 
 .editor-wrap.full-size-active .editor-page {
   width: 100% !important;
   max-width: 100% !important;
-  height: 100% !important;
+  height: auto !important;
   min-height: 100% !important;
   margin: 0 !important;
-  padding: 32px 32px !important;
+  padding: 40px 60px !important;
   border-radius: 0 !important;
   box-shadow: none !important;
   box-sizing: border-box !important;
+  background: #ffffff !important;
+  flex: 1 0 auto;
 }
 
 .editor-wrap.full-size-active.is-excel-mode .editor-page,
@@ -3282,6 +3285,12 @@ body.has-split-window .split-mirror-pane {
   max-width: 100% !important;
   height: 100% !important;
   min-height: 100% !important;
+  background: #ffffff !important;
+}
+
+.main-content:has(.editor-wrap.full-size-active)::before,
+body:has(.editor-wrap.full-size-active) .main-content::before {
+  display: none !important;
 }
 
 /* Hide Status Bar in Editor mode only (Issue 2) */
