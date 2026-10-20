@@ -760,6 +760,11 @@
     const modifiedDot = $('#modifiedDot');
 
     if (mode === 'empty') {
+      $('#tabBar')?.classList.remove('visible');
+      document.body.classList.remove('slide-deck-mode');
+      const pptSidebar = $('#pptxSlideSidebar');
+      if (pptSidebar) pptSidebar.style.display = 'none';
+
       $('#editorWrap')?.classList.remove('is-excel-mode');
       const ed = $('#editor');
       if (ed) {
@@ -1445,6 +1450,8 @@
 
   // Multi-Page Print Watermark Replicator & Excel Full Content Scaling
   window.addEventListener('beforeprint', () => {
+    window.DocFlow.ImageManager?.deselectImage?.();
+    window.DocFlow.ImageManager?.deselectLine?.();
     const existing = document.getElementById('dfPrintFixedWatermark');
     if (existing) existing.remove();
     if (window.DocFlow.activeWatermark && window.DocFlow.activeWatermark.text && window.DocFlow.activeWatermark.text !== 'none') {
@@ -2480,7 +2487,7 @@
   }
 
   function updatePptSidebar() {
-    const isPpt = isPptxDocument();
+    const isPpt = isPptxDocument() && window.DocFlow?.currentMode !== 'empty';
     const sidebar = $('#pptxSlideSidebar');
     const editor = $('#editor');
     if (!editor) return;
@@ -11156,6 +11163,14 @@
       const shouldOpen = forceState !== undefined ? forceState : !isOpen;
 
       if (shouldOpen) {
+        // Ensure dropdown stays below tabRecentBtn and never extends past status bar (Issue 2)
+        const btnRect = tabRecentBtn ? tabRecentBtn.getBoundingClientRect() : null;
+        const statusBar = $('.statusbar');
+        const statusHeight = statusBar ? statusBar.offsetHeight : 26;
+        const spaceBelow = btnRect ? Math.max(120, window.innerHeight - btnRect.bottom - statusHeight - 12) : 360;
+        const safeMaxHeight = Math.min(spaceBelow, 400);
+        recentTabsDropdown.style.maxHeight = `${safeMaxHeight}px`;
+
         recentTabsDropdown.style.display = 'flex';
         tabRecentBtn?.classList.add('active');
         Recent.renderDropdown(recentTabsSearchInput?.value || '');

@@ -1012,6 +1012,7 @@
 
 /* Tab Bar */
 .tab-bar {
+  position: relative;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   height: 36px;
@@ -1025,6 +1026,14 @@
 
 .tab-bar.visible {
   display: flex;
+}
+
+/* Hide Tab Bar and Tab List completely on the Main Home Page (Issue 4) */
+body[data-mode="empty"] #tabBar,
+body[data-mode="empty"] .tab-bar,
+body[data-mode="empty"] #tabList,
+body[data-mode="empty"] .tab-list {
+  display: none !important;
 }
 
 .tab-list {
@@ -1283,46 +1292,34 @@
   background: var(--bg-tertiary);
   color: var(--accent);
 }
-/* Sidebar-style Recent Tabs Dropdown (Requirement 2) */
+/* Accessible Recent Tabs Dropdown below #tabRecentBtn (Issue 2) */
 .recent-tabs-dropdown {
-  position: fixed;
-  top: 42px;
-  right: 0;
-  width: 360px;
-  max-width: 100vw;
-  height: calc(100vh - 42px);
+  position: absolute;
+  top: calc(100% + 2px);
+  right: 6px;
+  width: 340px;
+  max-width: calc(100vw - 16px);
+  max-height: min(400px, calc(100vh - 140px));
+  height: auto;
   background: var(--bg-primary);
-  border-left: 1px solid var(--border);
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.16), -2px 0 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
   z-index: 1050;
-  animation: slideInSidebar 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: dropIn 0.15s ease-out;
   font-family: var(--font-ui);
   overflow: hidden;
   box-sizing: border-box;
 }
 
-@keyframes slideInSidebar {
-  from {
-    transform: translateX(100%);
-    opacity: 0.8;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
 @media (max-width: 640px) {
   .recent-tabs-dropdown {
-    width: 100vw;
-    height: 100vh;
-    top: 0;
-    left: 0;
-    right: 0;
-    border-left: none;
-    z-index: 2000;
+    width: calc(100vw - 12px);
+    max-width: 350px;
+    right: 4px;
+    max-height: min(380px, calc(100vh - 130px));
   }
 }
 
@@ -1405,9 +1402,10 @@
 }
 
 .recent-tabs-list {
-  flex: 1;
+  flex: 1 1 auto;
   overflow-y: auto;
-  max-height: none;
+  max-height: 250px;
+  min-height: 60px;
   padding: 8px;
   display: flex;
   flex-direction: column;
@@ -2767,24 +2765,29 @@ body.reading-mode.ribbon-revealed .read-mode-action-bar {
   display: none !important;
 }
 
-/* Desktop PPT Slide Sidebar & Main Content Alignment (Issue 3) */
+/* Strict isolation: PPTX sidebar only visible when body has .slide-deck-mode (Issue 5) */
+body:not(.slide-deck-mode) .pptx-slide-sidebar,
+body:not(.slide-deck-mode) #pptxSlideSidebar,
+body[data-mode="empty"] .pptx-slide-sidebar,
+body[data-mode="empty"] #pptxSlideSidebar {
+  display: none !important;
+}
+
+/* Desktop PPT Slide Sidebar & Main Content Alignment (Issue 3 & Issue 5) */
 body.slide-deck-mode .main-content,
-body.slide-deck-mode #mainContent,
-.main-content:has(#pptxSlideSidebar:not([style*="display: none"]):not([style*="display:none"])) {
+body.slide-deck-mode #mainContent {
   display: flex !important;
   flex-direction: row !important;
   height: 100% !important;
   overflow: hidden !important;
 }
-body.slide-deck-mode .pptx-slide-sidebar,
-.main-content:has(#pptxSlideSidebar:not([style*="display: none"]):not([style*="display:none"])) .pptx-slide-sidebar {
+body.slide-deck-mode .pptx-slide-sidebar {
   height: 100% !important;
   max-height: 100% !important;
   order: 0 !important;
   flex-shrink: 0 !important;
 }
-body.slide-deck-mode .editor-wrap,
-.main-content:has(#pptxSlideSidebar:not([style*="display: none"]):not([style*="display:none"])) .editor-wrap {
+body.slide-deck-mode .editor-wrap {
   position: relative !important;
   inset: auto !important;
   flex: 1 1 0% !important;
@@ -2794,20 +2797,17 @@ body.slide-deck-mode .editor-wrap,
 }
 
 @media (max-width: 768px) {
-  .main-content:not(:has(.pptx-slide-sidebar)):not(:has(#pptxSlideSidebar)) {
+  body:not(.slide-deck-mode) .main-content {
     flex-direction: column !important;
   }
   body.slide-deck-mode .main-content,
-  body.slide-deck-mode #mainContent,
-  .main-content:has(.pptx-slide-sidebar),
-  .main-content:has(#pptxSlideSidebar:not([style*="display: none"]):not([style*="display:none"])) {
+  body.slide-deck-mode #mainContent {
     flex-direction: row !important;
     display: flex !important;
     overflow: hidden !important;
     height: 100% !important;
   }
-  body.slide-deck-mode .pptx-slide-sidebar,
-  .pptx-slide-sidebar {
+  body.slide-deck-mode .pptx-slide-sidebar {
     width: 120px !important;
     min-width: 90px !important;
     max-width: 130px !important;
@@ -2849,9 +2849,7 @@ body.slide-deck-mode .editor-wrap,
     width: 100% !important;
     -webkit-overflow-scrolling: touch !important;
   }
-  body.slide-deck-mode .editor-wrap,
-  .main-content:has(.pptx-slide-sidebar) .editor-wrap,
-  .main-content:has(#pptxSlideSidebar:not([style*="display: none"])) .editor-wrap {
+  body.slide-deck-mode .editor-wrap {
     flex: 1 1 0% !important;
     min-width: 0 !important;
     width: auto !important;
@@ -2894,8 +2892,7 @@ body.slide-deck-mode .editor-wrap,
   }
 
 @media (max-width: 480px) {
-  body.slide-deck-mode .pptx-slide-sidebar,
-  .pptx-slide-sidebar {
+  body.slide-deck-mode .pptx-slide-sidebar {
     width: 85px !important;
     min-width: 80px !important;
     max-width: 90px !important;

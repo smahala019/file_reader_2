@@ -638,7 +638,8 @@
         tabList.appendChild(el);
       });
 
-      tabBar.classList.toggle('visible', this.list.length > 0);
+      const isHome = document.body.dataset.mode === 'empty' || !this.activeId;
+      tabBar.classList.toggle('visible', this.list.length > 0 && !isHome);
     },
 
     save() {

@@ -414,13 +414,24 @@
   }
 
   // ==========================================================================
-  // Paste Images from Clipboard (Ctrl+V)
+  // Paste Images and Visual Elements from Clipboard (Ctrl+V)
   // ==========================================================================
+  let isClipboardPasteInitialized = false;
+  let isPasting = false;
+
   function setupClipboardPaste() {
     const editor = $('#editor');
-    if (!editor) return;
+    if (!editor || isClipboardPasteInitialized) return;
+    isClipboardPasteInitialized = true;
 
     editor.addEventListener('paste', async e => {
+      if (e.defaultPrevented || isPasting) return;
+
+      // In Excel mode, let the spreadsheet container handle cell tabular paste
+      if (document.body.dataset.mode === 'excel' && (e.target.closest('.excel-grid-table') || e.target.closest('.excel-spreadsheet-container'))) {
+        return;
+      }
+
       const clipboard = e.clipboardData;
       if (!clipboard) return;
 
@@ -429,6 +440,8 @@
 
       if (imageItem) {
         e.preventDefault();
+        isPasting = true;
+        setTimeout(() => { isPasting = false; }, 300);
         const file = imageItem.getAsFile();
         if (file) {
           try {
@@ -443,10 +456,9 @@
         return;
       }
 
-      // Paste visual elements or formatted content (Issue 1.c)
+      // Paste visual elements or formatted content (Issue 1.a single paste)
       const html = clipboard.getData('text/html');
       if (html) {
-        e.preventDefault();
         const temp = document.createElement('div');
         temp.innerHTML = html;
         // Only strip dangerous script/executable elements and attributes, preserving styles, classes, SVG, tables, notes, shapes, and images
@@ -459,26 +471,50 @@
             }
           });
         });
-        window.DocFlow.Editor.insertHtmlAtCursor(temp.innerHTML);
-        window.DocFlow.Editor?.notifyChange?.();
-        setTimeout(() => {
-          initImageManager();
-        }, 50);
-        return;
+
+        // Ensure newly pasted elements get fresh IDs and clean selection classes
+        temp.querySelectorAll('[id]').forEach(el => {
+          const prefix = el.id.split('-')[0] || 'el';
+          el.id = `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        });
+        temp.querySelectorAll('.df-selected-line, .df-selected-image, .selected, .active').forEach(el => {
+          el.classList.remove('df-selected-line', 'df-selected-image', 'selected', 'active');
+        });
+
+        if (temp.innerHTML.trim()) {
+          e.preventDefault();
+          isPasting = true;
+          setTimeout(() => { isPasting = false; }, 300);
+          window.DocFlow.Editor.insertHtmlAtCursor(temp.innerHTML);
+          window.DocFlow.Editor?.notifyChange?.();
+          setTimeout(() => {
+            refreshElementListeners();
+          }, 40);
+          return;
+        }
       }
 
-      // Check if text/plain contains raw visual element markup (Issue 1.c)
+      // Check if text/plain contains raw visual element markup (Issue 1.a single paste)
       const plain = clipboard.getData('text/plain') || '';
       if (plain && /<(table|img|svg|div class="doc-shape|div class="doc-chart|div class="doc-custom-note|div class="doc-interactive-note|div class="onenote-sticky-note|hr class="doc-custom-line)/i.test(plain)) {
         e.preventDefault();
+        isPasting = true;
+        setTimeout(() => { isPasting = false; }, 300);
         const temp = document.createElement('div');
         temp.innerHTML = plain;
         temp.querySelectorAll('script, meta, link, iframe, object, embed, applet').forEach(el => el.remove());
+        temp.querySelectorAll('[id]').forEach(el => {
+          const prefix = el.id.split('-')[0] || 'el';
+          el.id = `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        });
+        temp.querySelectorAll('.df-selected-line, .df-selected-image, .selected, .active').forEach(el => {
+          el.classList.remove('df-selected-line', 'df-selected-image', 'selected', 'active');
+        });
         window.DocFlow.Editor.insertHtmlAtCursor(temp.innerHTML);
         window.DocFlow.Editor?.notifyChange?.();
         setTimeout(() => {
-          initImageManager();
-        }, 50);
+          refreshElementListeners();
+        }, 40);
         return;
       }
     });
@@ -1187,9 +1223,24 @@
     });
   }
 
+  let isDocListenersInitialized = false;
+
+  function refreshElementListeners() {
+    const editor = $('#editor');
+    if (!editor) return;
+    editor.querySelectorAll('img').forEach(attachImageListeners);
+    editor.querySelectorAll('.doc-shape-container, .doc-chart-container').forEach(attachShapeListeners);
+    editor.querySelectorAll('hr, .doc-custom-line, .doc-custom-note, .doc-interactive-note, .onenote-sticky-note').forEach(attachLineListeners);
+  }
+
   function setupDocumentImageListeners() {
     const editor = $('#editor');
     if (!editor) return;
+    if (isDocListenersInitialized) {
+      refreshElementListeners();
+      return;
+    }
+    isDocListenersInitialized = true;
 
     editor.querySelectorAll('img').forEach(attachImageListeners);
 
@@ -2170,18 +2221,25 @@
     }, 50);
   }
 
+  let isImageManagerInitialized = false;
+
   function initImageManager() {
     setupImageModal();
     setupEditorDropZone();
-    setupClipboardPaste();
-    setupDocumentImageListeners();
-    setupShapesModal();
+    if (!isImageManagerInitialized) {
+      setupClipboardPaste();
+      setupDocumentImageListeners();
+      setupShapesModal();
+      isImageManagerInitialized = true;
+    }
+    refreshElementListeners();
   }
 
   // Export module
   window.DocFlow = window.DocFlow || {};
   window.DocFlow.ImageManager = {
     initImageManager,
+    refreshElementListeners,
     insertImageIntoDocument,
     insertShapeIntoDocument,
     getShapeSvg,

@@ -1471,11 +1471,55 @@
     tableCornerHandle.style.cssText = 'position:fixed;width:12px;height:12px;background:#ffffff;border:2px solid var(--accent,#0284c7);border-radius:2px;display:none;cursor:nwse-resize;z-index:999;box-shadow:0 1px 4px rgba(0,0,0,0.25);box-sizing:border-box;user-select:none;';
     document.body.appendChild(tableCornerHandle);
 
-    // Floating visual resizer line guide for columns and rows (Issue 3.b)
+    // Floating visual resizer line guide for columns and rows (Issue 3.b & Issue 1.b)
     const tableResizeGuide = document.createElement('div');
     tableResizeGuide.id = 'dfTableResizeGuide';
     tableResizeGuide.style.cssText = 'position:fixed;display:none;z-index:1000;pointer-events:none;background:#0284c7;box-shadow:0 0 10px rgba(2,132,199,0.9), 0 0 4px #0284c7;transition:none;border-radius:2px;';
     document.body.appendChild(tableResizeGuide);
+
+    const showResizeGuide = (tbl, isCol, clientX, clientY, rectOrTRect) => {
+      if (!tableResizeGuide) return;
+      const isExcel = tbl?.classList?.contains('excel-grid-table') || document.body.dataset.mode === 'excel';
+      if (isExcel) {
+        tableResizeGuide.classList.add('excel-mode');
+        tableResizeGuide.style.background = 'none';
+        tableResizeGuide.style.boxShadow = 'none';
+        tableResizeGuide.style.border = 'none';
+        tableResizeGuide.style.display = 'flex';
+        tableResizeGuide.style.alignItems = 'center';
+        tableResizeGuide.style.justifyContent = 'center';
+        tableResizeGuide.style.width = '24px';
+        tableResizeGuide.style.height = '24px';
+        tableResizeGuide.style.left = (clientX - 12) + 'px';
+        tableResizeGuide.style.top = (clientY - 12) + 'px';
+        tableResizeGuide.innerHTML = '<span class="df-excel-resizer-arrow" style="color:#ef4444;font-size:20px;font-weight:900;line-height:1;user-select:none;pointer-events:none;filter:drop-shadow(0 0 2px rgba(239,68,68,0.7));">⬌</span>';
+      } else {
+        tableResizeGuide.classList.remove('excel-mode');
+        tableResizeGuide.innerHTML = '';
+        tableResizeGuide.style.background = '#0284c7';
+        tableResizeGuide.style.boxShadow = '0 0 10px rgba(2,132,199,0.9), 0 0 4px #0284c7';
+        tableResizeGuide.style.border = 'none';
+        tableResizeGuide.style.display = 'block';
+        if (isCol) {
+          tableResizeGuide.style.width = '3px';
+          tableResizeGuide.style.height = (rectOrTRect?.height || 20) + 'px';
+          tableResizeGuide.style.top = (rectOrTRect?.top || 0) + 'px';
+          tableResizeGuide.style.left = Math.round(clientX - 1) + 'px';
+        } else {
+          tableResizeGuide.style.height = '3px';
+          tableResizeGuide.style.width = (rectOrTRect?.width || 20) + 'px';
+          tableResizeGuide.style.left = (rectOrTRect?.left || 0) + 'px';
+          tableResizeGuide.style.top = Math.round(clientY - 1) + 'px';
+        }
+      }
+    };
+
+    const hideResizeGuide = () => {
+      if (!tableResizeGuide) return;
+      tableResizeGuide.style.display = 'none';
+      tableResizeGuide.innerHTML = '';
+      tableResizeGuide.classList.remove('excel-mode');
+    };
 
     const positionTableHandles = (tbl) => {
       if (!tbl || !document.body.contains(tbl)) {
@@ -1535,7 +1579,7 @@
           if (wrapRect && (r.bottom < wrapRect.top || r.top > wrapRect.bottom)) {
             tableMoveHandle.style.display = 'none';
             tableCornerHandle.style.display = 'none';
-            if (tableResizeGuide) tableResizeGuide.style.display = 'none';
+            hideResizeGuide();
           } else {
             positionTableHandles(activeTable);
           }
@@ -1616,11 +1660,7 @@
             }
           });
           const tRect = activeTable.getBoundingClientRect();
-          tableResizeGuide.style.display = 'block';
-          tableResizeGuide.style.width = '3px';
-          tableResizeGuide.style.height = tRect.height + 'px';
-          tableResizeGuide.style.top = tRect.top + 'px';
-          tableResizeGuide.style.left = Math.round(e.clientX - 1) + 'px';
+          showResizeGuide(activeTable, true, e.clientX, e.clientY, tRect);
         }
         if (activeTable && !activeTable.classList.contains('excel-grid-table')) positionTableHandles(activeTable);
         return;
@@ -1635,11 +1675,7 @@
           });
           if (activeTable) {
             const tRect = activeTable.getBoundingClientRect();
-            tableResizeGuide.style.display = 'block';
-            tableResizeGuide.style.height = '3px';
-            tableResizeGuide.style.width = tRect.width + 'px';
-            tableResizeGuide.style.left = tRect.left + 'px';
-            tableResizeGuide.style.top = Math.round(e.clientY - 1) + 'px';
+            showResizeGuide(activeTable, false, e.clientX, e.clientY, tRect);
           }
         }
         if (activeTable && !activeTable.classList.contains('excel-grid-table')) positionTableHandles(activeTable);
@@ -1676,13 +1712,13 @@
       const cell = e.target.closest?.('td, th');
       if (!cell) {
         document.body.classList.remove('is-table-resizing-col', 'is-table-resizing-row');
-        if (!resizingCol && !resizingRow) tableResizeGuide.style.display = 'none';
+        if (!resizingCol && !resizingRow) hideResizeGuide();
         return;
       }
       const cellTable = cell.closest('table.doc-table, #editor table, .excel-grid-table');
       if (!cellTable) {
         document.body.classList.remove('is-table-resizing-col', 'is-table-resizing-row');
-        if (!resizingCol && !resizingRow) tableResizeGuide.style.display = 'none';
+        if (!resizingCol && !resizingRow) hideResizeGuide();
         return;
       }
 
@@ -1693,23 +1729,15 @@
       if (nearRight) {
         cell.style.cursor = 'col-resize';
         const tRect = cellTable.getBoundingClientRect();
-        tableResizeGuide.style.display = 'block';
-        tableResizeGuide.style.width = '3px';
-        tableResizeGuide.style.height = tRect.height + 'px';
-        tableResizeGuide.style.top = tRect.top + 'px';
-        tableResizeGuide.style.left = Math.round(rect.right - 1) + 'px';
+        showResizeGuide(cellTable, true, rect.right, e.clientY, tRect);
       } else if (nearBottom) {
         cell.style.cursor = 'row-resize';
         const tRect = cellTable.getBoundingClientRect();
-        tableResizeGuide.style.display = 'block';
-        tableResizeGuide.style.height = '3px';
-        tableResizeGuide.style.width = tRect.width + 'px';
-        tableResizeGuide.style.left = tRect.left + 'px';
-        tableResizeGuide.style.top = Math.round(rect.bottom - 1) + 'px';
+        showResizeGuide(cellTable, false, e.clientX, rect.bottom, tRect);
       } else {
         cell.style.cursor = '';
         if (!resizingCol && !resizingRow) {
-          tableResizeGuide.style.display = 'none';
+          hideResizeGuide();
         }
       }
     });
@@ -1755,7 +1783,7 @@
     document.addEventListener('mouseup', (e) => {
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
-      if (tableResizeGuide) tableResizeGuide.style.display = 'none';
+      hideResizeGuide();
 
       if (isCornerResizing) {
         isCornerResizing = false;
@@ -2988,9 +3016,16 @@
                         }
                       });
                     });
+                    temp.querySelectorAll('[id]').forEach(el => {
+                      const prefix = el.id.split('-')[0] || 'el';
+                      el.id = `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+                    });
+                    temp.querySelectorAll('.df-selected-line, .df-selected-image, .selected, .active').forEach(el => {
+                      el.classList.remove('df-selected-line', 'df-selected-image', 'selected', 'active');
+                    });
                     insertHtmlAtCursor(temp.innerHTML);
                     notifyChange();
-                    setTimeout(() => window.DocFlow.ImageManager?.initImageManager?.(), 50);
+                    setTimeout(() => window.DocFlow.ImageManager?.refreshElementListeners?.(), 40);
                     showToast('Pasted visual element', 'success');
                     return;
                   }
@@ -3006,9 +3041,16 @@
                 const temp = document.createElement('div');
                 temp.innerHTML = text;
                 temp.querySelectorAll('script, meta, link, iframe, object, embed, applet').forEach(el => el.remove());
+                temp.querySelectorAll('[id]').forEach(el => {
+                  const prefix = el.id.split('-')[0] || 'el';
+                  el.id = `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+                });
+                temp.querySelectorAll('.df-selected-line, .df-selected-image, .selected, .active').forEach(el => {
+                  el.classList.remove('df-selected-line', 'df-selected-image', 'selected', 'active');
+                });
                 insertHtmlAtCursor(temp.innerHTML);
                 notifyChange();
-                setTimeout(() => window.DocFlow.ImageManager?.initImageManager?.(), 50);
+                setTimeout(() => window.DocFlow.ImageManager?.refreshElementListeners?.(), 40);
                 showToast('Pasted visual element', 'success');
                 return;
               } else {

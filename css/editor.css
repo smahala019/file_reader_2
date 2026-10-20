@@ -1932,6 +1932,12 @@ body.df-focus-mode .tab-bar:hover {
     size: auto;
   }
 
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
   html, body {
     background: #ffffff !important;
     color: #000000 !important;
@@ -1941,7 +1947,20 @@ body.df-focus-mode .tab-bar:hover {
     overflow: visible !important;
   }
 
-  /* Completely hide all UI elements */
+  mark,
+  .highlight,
+  [style*="background"],
+  [style*="background-color"],
+  .excel-grid-table th,
+  .excel-grid-table td,
+  .doc-table th,
+  .doc-table td {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Completely hide all UI elements, handles, delete buttons, and popovers */
   .topbar,
   .toolbar,
   .ribbon-container,
@@ -1959,9 +1978,27 @@ body.df-focus-mode .tab-bar:hover {
   .toast-container,
   .modal-overlay,
   .df-img-toolbar,
+  .df-resize-handle,
+  .df-img-move-handle,
+  .df-line-move-handle,
+  .df-line-resize-handle,
+  .df-line-plus-btn,
+  .df-line-popover,
+  .df-table-move-handle,
+  .df-table-corner-handle,
+  #dfTableResizeGuide,
+  .df-hf-delete-btn,
+  .excel-note-close-btn,
+  .doc-note-close-btn,
+  .slide-plus-action-btn,
+  .slide-plus-menu,
+  .slide-quick-action-bar,
+  .pptx-slide-sidebar,
+  #pptxSlideSidebar,
   .editor-drop-overlay,
   .empty-state {
     display: none !important;
+    visibility: hidden !important;
   }
 
   .main-content {
@@ -3790,13 +3827,19 @@ body.is-table-resizing-row * {
   user-select: none !important;
 }
 
-/* Floating Table Visual Resizer Guide (Issue 3.b) */
+/* Floating Table Visual Resizer Guide (Issue 3.b & Issue 1.b) */
 #dfTableResizeGuide {
   pointer-events: none !important;
   background: var(--accent, #0284c7) !important;
   box-shadow: 0 0 10px rgba(2, 132, 199, 0.95), 0 0 4px #0284c7 !important;
   border-radius: 2px !important;
   z-index: 1000 !important;
+}
+
+#dfTableResizeGuide.excel-mode {
+  background: none !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
 /* Excel Note Badge Indicator (Requirement 1.2) */
