@@ -668,6 +668,22 @@
   }
   window.DocFlow.applyPersistedLayoutSettings = applyPersistedLayoutSettings;
 
+  // Global pending document holder & unlock modal launcher (Issue 1.a)
+  let pendingLockedItemToOpen = null;
+
+  function openUnlockDocModal(itemOrTab) {
+    if (!itemOrTab) return;
+    pendingLockedItemToOpen = itemOrTab;
+    const docName = itemOrTab.name || 'Document';
+    const pinInput = $('#docUnlockPinInput');
+    if (pinInput) pinInput.value = '';
+    const desc = $('#docUnlockModal p') || $('#docUnlockModalDesc');
+    if (desc) desc.textContent = `Enter password or PIN to unlock "${docName}":`;
+    window.DocFlow.UI?.openModal?.('#docUnlockModal');
+    setTimeout(() => pinInput?.focus(), 80);
+  }
+  window.DocFlow.openUnlockDocModal = openUnlockDocModal;
+
   // ==========================================================================
   // Recent Files Manager (Persistent, Individual Delete, Clear All, Reopen)
   // ==========================================================================
@@ -980,9 +996,8 @@
               ${openBadge}
             </div>
           </div>
-          <button type="button" class="recent-tab-del-btn" title="Remove from recent files" aria-label="Remove ${escHtml(item.name)}"><i class="fas fa-xmark"></i></button>
         `;
-
+// { not to add inside this /* <button type="button" class="recent-tab-del-btn" title="Remove from recent files" aria-label="Remove ${escHtml(item.name)}"><i class="fas fa-xmark"></i></button> */}
         const delBtn = card.querySelector('.recent-tab-del-btn');
         if (delBtn) {
           delBtn.addEventListener('click', (e) => {
@@ -1188,6 +1203,9 @@
       }
       if (modifiedDot) modifiedDot.style.display = 'inline-block';
       if (modeInfo) modeInfo.textContent = mode === 'edit' ? 'Editing' : 'Viewing';
+      if (window.DocFlow.UI?.Tabs?.list?.length > 0) {
+        $('#tabBar')?.classList.add('visible');
+      }
     }
 
     if (window.DocFlow.Find) {
@@ -1597,8 +1615,8 @@
             }
             break;
           case 'z':
-            if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') && e.target.closest('.modal, .find-bar, .excel-formula-input, .excel-coord-box')) {
-              return; // Allow native form input undo
+            if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.closest?.('.doc-note-body, .excel-note-body, .doc-shape-text-editor, .doc-note-title'))) {
+              return; // Allow native form input and note/shape undo
             }
             e.preventDefault();
             if (window.DocFlow.currentMode === 'view' && window.DocFlow.PDF?.undoPdf) {
@@ -1610,8 +1628,8 @@
             }
             break;
           case 'y':
-            if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') && e.target.closest('.modal, .find-bar, .excel-formula-input, .excel-coord-box')) {
-              return; // Allow native form input redo
+            if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.closest?.('.doc-note-body, .excel-note-body, .doc-shape-text-editor, .doc-note-title'))) {
+              return; // Allow native form input and note/shape redo
             }
             e.preventDefault();
             if (window.DocFlow.currentMode === 'view' && window.DocFlow.PDF?.redoPdf) {
@@ -1621,6 +1639,17 @@
             }
             break;
           case 'a': {
+            const noteOrShapeBody = e.target.closest?.('.doc-note-body, .excel-note-body, .doc-shape-text-editor, .doc-note-title');
+            if (noteOrShapeBody) {
+              e.preventDefault();
+              e.stopPropagation();
+              const range = document.createRange();
+              range.selectNodeContents(noteOrShapeBody);
+              const sel = window.getSelection();
+              sel.removeAllRanges();
+              sel.addRange(range);
+              return;
+            }
             const excelContainer = document.querySelector('.excel-spreadsheet-container');
             if (excelContainer && window.DocFlow.currentMode === 'edit') {
               e.preventDefault();
@@ -5859,6 +5888,7 @@
       });
 
       container.addEventListener('cut', e => {
+        if (e.target.closest?.('.excel-note-body, .doc-note-body, .doc-shape-text-editor, .doc-note-title')) return;
         if (document.activeElement === formulaInput || document.activeElement === coordBox) return;
         const cells = getSelectedExcelCells();
         if (cells.length > 0) {
@@ -5873,6 +5903,7 @@
       });
 
       container.addEventListener('paste', e => {
+        if (e.target.closest?.('.excel-note-body, .doc-note-body, .doc-shape-text-editor, .doc-note-title')) return;
         if (document.activeElement === formulaInput || document.activeElement === coordBox) return;
         const clipData = e.clipboardData?.getData('text/plain');
         if (clipData && (clipData.includes('\t') || clipData.includes('\n'))) {
@@ -5882,6 +5913,23 @@
       });
 
       container.addEventListener('keydown', e => {
+        const noteOrShape = e.target.closest?.('.excel-note-body, .doc-note-body, .doc-shape-text-editor, .excel-floating-note, .doc-custom-note, .doc-note-title');
+        if (noteOrShape) {
+          if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const editable = noteOrShape.isContentEditable ? noteOrShape : (noteOrShape.querySelector?.('.excel-note-body, .doc-note-body, [contenteditable="true"]') || noteOrShape);
+            if (editable) {
+              const range = document.createRange();
+              range.selectNodeContents(editable);
+              const sel = window.getSelection();
+              sel.removeAllRanges();
+              sel.addRange(range);
+            }
+          }
+          return; // Allow Backspace, Delete, Enter, Undo, Redo, typing freely in notes & shapes
+        }
+
         if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
           if (document.activeElement === formulaInput || document.activeElement === coordBox) {
             return;
@@ -6021,7 +6069,7 @@
         hdr._bound = true;
         let isDragging = false, dragX = 0, dragY = 0, initLeft = 0, initTop = 0;
         hdr.addEventListener('mousedown', (e) => {
-          if (e.target.closest('.excel-note-close-btn')) return;
+          if (e.target.closest('.excel-note-close-btn, .doc-note-close-btn, .doc-note-title, .doc-note-icon, input, button')) return;
           e.preventDefault();
           isDragging = true;
           dragX = e.clientX;
@@ -6436,37 +6484,273 @@
       { bg: '#f3e8ff', border: '#d8b4fe', header: '#6b21a8' }
     ];
 
+    function applyNoteBackgroundColor(note, bodyColor, headerColor) {
+      if (!note || !bodyColor) return;
+      const body = note.querySelector('.doc-note-body, .excel-note-body');
+      const hdr = note.querySelector('.doc-note-header, .excel-note-header');
+      const title = note.querySelector('.doc-note-title');
+      const icon = note.querySelector('.doc-note-icon, .fa-note-sticky');
+      const closeBtn = note.querySelector('.doc-note-close-btn, .excel-note-close-btn');
+      const hdrColorBtn = note.querySelector('.doc-note-header-color-btn');
+
+      const getContrast = window.DocFlow?.getContrastColorForBackground || function (bg) {
+        if (!bg || bg === 'none' || bg === 'transparent') return '#0f172a';
+        let r = 255, g = 255, b = 255;
+        if (bg.startsWith('#')) {
+          let hex = bg.slice(1);
+          if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+          if (hex.length >= 6) {
+            r = parseInt(hex.substring(0, 2), 16) || 0;
+            g = parseInt(hex.substring(2, 4), 16) || 0;
+            b = parseInt(hex.substring(4, 6), 16) || 0;
+          }
+        } else if (bg.startsWith('rgb')) {
+          const match = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+          if (match) {
+            r = parseInt(match[1], 10);
+            g = parseInt(match[2], 10);
+            b = parseInt(match[3], 10);
+          }
+        }
+        const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+        return yiq >= 140 ? '#0f172a' : '#ffffff';
+      };
+
+      // 1. Change note body & outer container background
+      note.style.setProperty('background-color', bodyColor, 'important');
+      note.style.borderColor = bodyColor;
+      note.style.borderLeft = `5px solid ${bodyColor}`;
+      if (body) {
+        body.style.setProperty('background-color', bodyColor, 'important');
+      }
+
+      // 2. Auto adapt body text color according to body background
+      const bodyTextColor = getContrast(bodyColor);
+      note.style.color = bodyTextColor;
+      if (body) {
+        body.style.color = bodyTextColor;
+      }
+
+      // 3. Header background color: use explicit headerColor if provided, otherwise matching tint
+      let actualHeaderBg = headerColor;
+      if (!actualHeaderBg) {
+        actualHeaderBg = bodyTextColor === '#ffffff' ? 'rgba(0,0,0,0.22)' : 'rgba(0,0,0,0.07)';
+      }
+
+      if (hdr) {
+        hdr.style.setProperty('background-color', actualHeaderBg, 'important');
+
+        // Header text auto adapts contrast according to header background
+        let effectiveHeaderBg = actualHeaderBg;
+        if (actualHeaderBg.startsWith('rgba') || actualHeaderBg === 'transparent') {
+          effectiveHeaderBg = bodyColor;
+        }
+        const headerTextColor = getContrast(effectiveHeaderBg);
+        hdr.style.color = headerTextColor;
+        hdr.style.borderBottom = headerTextColor === '#ffffff'
+          ? '1px solid rgba(255,255,255,0.25)'
+          : '1px solid rgba(0,0,0,0.12)';
+
+        if (title) title.style.color = headerTextColor;
+        if (icon) icon.style.color = headerTextColor;
+        if (closeBtn) closeBtn.style.color = headerTextColor;
+        if (hdrColorBtn) hdrColorBtn.style.color = headerTextColor;
+      }
+
+      // Sync color inputs
+      const hiddenBodyColor = note.querySelector('.doc-note-hidden-color');
+      if (hiddenBodyColor && bodyColor.startsWith('#')) hiddenBodyColor.value = bodyColor;
+      const hiddenHdrColor = note.querySelector('.doc-note-hidden-header-color');
+      if (hiddenHdrColor && headerColor && headerColor.startsWith('#')) hiddenHdrColor.value = headerColor;
+
+      window.DocFlow.Editor?.notifyChange?.();
+      window.DocFlow.UI?.Tabs?.saveCurrent?.();
+    }
+    window.DocFlow.applyNoteBackgroundColor = applyNoteBackgroundColor;
+
     function createInteractiveNoteElement() {
       const noteId = 'doc_note_' + Date.now();
       const div = document.createElement('div');
       div.className = 'doc-custom-line doc-custom-note doc-interactive-note onenote-sticky-note';
       div.id = noteId;
       div.contentEditable = 'false';
-      div.style.cssText = 'position:relative;width:280px;min-height:95px;background:#fef08a;border:1.5px solid #eab308;border-left:5px solid #eab308;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,0.12);margin:14px 0;display:inline-block;box-sizing:border-box;vertical-align:top;z-index:20;cursor:pointer;';
+      div.style.cssText = 'position:relative;width:280px;min-height:95px;background:#fef08a;border:1.5px solid #eab308;border-left:5px solid #eab308;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,0.12);margin:14px 0;display:inline-block;box-sizing:border-box;vertical-align:top;z-index:20;color:#0f172a;';
       div.innerHTML = `
-        <div class="doc-note-header" style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.05);padding:6px 12px;cursor:pointer;user-select:none;border-bottom:1px solid rgba(234,179,8,0.3);font-size:12px;font-weight:700;color:#713f12;">
-          <span class="doc-note-drag-title"><i class="fas fa-note-sticky" style="margin-right:6px;color:#eab308;"></i>Note</span>
+        <div class="doc-note-header" style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.06);padding:6px 10px;cursor:move;user-select:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:12px;font-weight:700;">
+          <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
+            <i class="fas fa-note-sticky doc-note-icon" title="Change note body background color" style="cursor:pointer;color:inherit;font-size:13px;"></i>
+            <span class="doc-note-title" contenteditable="true" spellcheck="false" role="textbox" aria-label="Note header name" style="outline:none;cursor:text;user-select:text;padding:1px 4px;border-radius:3px;min-width:30px;color:inherit;">Note</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <button type="button" class="doc-note-header-color-btn" title="Change note header background color" style="border:none;background:transparent;cursor:pointer;font-size:12px;color:inherit;opacity:0.8;padding:0 2px;" aria-label="Change header color"><i class="fas fa-palette"></i></button>
+            <input type="color" class="doc-note-hidden-color" value="#fef08a" style="opacity:0;position:absolute;pointer-events:none;width:0;height:0;" aria-label="Note body color picker">
+            <input type="color" class="doc-note-hidden-header-color" value="#fde047" style="opacity:0;position:absolute;pointer-events:none;width:0;height:0;" aria-label="Note header color picker">
+            <button type="button" class="doc-note-close-btn" style="border:none;background:transparent;cursor:pointer;font-size:15px;color:inherit;opacity:0.75;padding:0 2px;line-height:1;" title="Delete Note">&times;</button>
+          </div>
         </div>
-        <div class="doc-note-body" contenteditable="true" style="padding:10px 12px;font-size:13px;line-height:1.6;color:#1e293b;outline:none;min-height:50px;box-sizing:border-box;" data-placeholder="Write your note here...">Write your note here...</div>
+        <div class="doc-note-body" contenteditable="true" style="padding:10px 12px;font-size:13px;line-height:1.6;color:inherit;outline:none;min-height:50px;box-sizing:border-box;" data-placeholder="Enter note..."></div>
       `;
+
+      div.querySelector('.doc-note-icon')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        div.querySelector('.doc-note-hidden-color')?.click();
+      });
+
+      div.querySelector('.doc-note-header-color-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        div.querySelector('.doc-note-hidden-header-color')?.click();
+      });
+
+      div.querySelector('.doc-note-hidden-color')?.addEventListener('input', (e) => {
+        const curHdr = div.querySelector('.doc-note-hidden-header-color')?.value;
+        applyNoteBackgroundColor(div, e.target.value, curHdr);
+      });
+
+      div.querySelector('.doc-note-hidden-header-color')?.addEventListener('input', (e) => {
+        const curBody = div.querySelector('.doc-note-hidden-color')?.value || div.style.backgroundColor || '#fef08a';
+        applyNoteBackgroundColor(div, curBody, e.target.value);
+      });
+
       return div;
     }
 
     // Save note on input / blur
     document.addEventListener('input', (e) => {
-      if (e.target.closest('.doc-note-body')) {
+      if (e.target.closest('.doc-note-body, .excel-note-body, .doc-note-title')) {
         window.DocFlow.Editor?.notifyChange();
         window.DocFlow.UI?.Tabs?.saveCurrent?.();
       }
+      if (e.target.matches('.doc-note-hidden-color')) {
+        const note = e.target.closest('.doc-interactive-note, .doc-custom-note, .onenote-sticky-note, .excel-floating-note, .doc-note-card');
+        if (note) {
+          const curHdr = note.querySelector('.doc-note-hidden-header-color')?.value;
+          applyNoteBackgroundColor(note, e.target.value, curHdr);
+        }
+      }
+      if (e.target.matches('.doc-note-hidden-header-color')) {
+        const note = e.target.closest('.doc-interactive-note, .doc-custom-note, .onenote-sticky-note, .excel-floating-note, .doc-note-card');
+        if (note) {
+          const curBody = note.querySelector('.doc-note-hidden-color')?.value || note.style.backgroundColor || '#fef08a';
+          applyNoteBackgroundColor(note, curBody, e.target.value);
+        }
+      }
     });
+
     document.addEventListener('blur', (e) => {
-      if (e.target.closest?.('.doc-note-body')) {
+      if (e.target.closest?.('.doc-note-body, .excel-note-body, .doc-note-title')) {
         window.DocFlow.Editor?.notifyChange();
         window.DocFlow.UI?.Tabs?.saveCurrent?.();
       }
     }, true);
 
+    // Note color change and delete handlers across all documents
+    document.addEventListener('click', e => {
+      const icon = e.target.closest('.doc-note-icon');
+      if (icon) {
+        const note = icon.closest('.doc-interactive-note, .doc-custom-note, .onenote-sticky-note, .excel-floating-note, .doc-note-card');
+        const colorInput = note?.querySelector('.doc-note-hidden-color');
+        if (colorInput) {
+          e.stopPropagation();
+          colorInput.click();
+        }
+        return;
+      }
+
+      const hdrBtn = e.target.closest('.doc-note-header-color-btn');
+      if (hdrBtn) {
+        const note = hdrBtn.closest('.doc-interactive-note, .doc-custom-note, .onenote-sticky-note, .excel-floating-note, .doc-note-card');
+        const colorInput = note?.querySelector('.doc-note-hidden-header-color');
+        if (colorInput) {
+          e.stopPropagation();
+          colorInput.click();
+        }
+        return;
+      }
+
+      const closeBtn = e.target.closest('.doc-note-close-btn, .excel-note-close-btn');
+      if (closeBtn) {
+        e.stopPropagation();
+        const note = closeBtn.closest('.doc-interactive-note, .doc-custom-note, .onenote-sticky-note, .excel-floating-note, .doc-note-card');
+        if (note) {
+          const coord = note.getAttribute('data-target-coord');
+          if (coord) {
+            const activeCell = document.querySelector(`.excel-grid-table td[data-coord="${coord}"]`);
+            if (activeCell) activeCell.classList.remove('excel-has-note');
+          }
+          note.remove();
+          window.DocFlow.Editor?.notifyChange?.();
+          window.DocFlow.UI?.Tabs?.saveCurrent?.();
+          showToast('Note deleted', 'info');
+        }
+        return;
+      }
+    });
+
+    // Prevent user from automatically exiting note on double enter (Issue 3.a)
+    document.addEventListener('keydown', e => {
+      const noteBody = e.target.closest?.('.doc-note-body, .excel-note-body');
+      if (noteBody && e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount) {
+          const range = sel.getRangeAt(0);
+          range.deleteContents();
+          const br = document.createElement('br');
+          range.insertNode(br);
+          if (!br.nextSibling) {
+            const trailing = document.createElement('br');
+            br.parentNode.appendChild(trailing);
+          }
+          const newRange = document.createRange();
+          newRange.setStartAfter(br);
+          newRange.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+          window.DocFlow.Editor?.notifyChange?.();
+        }
+      }
+    });
+
+    // Enter key inside note title moves focus into note body
+    document.addEventListener('keydown', e => {
+      const titleEl = e.target.closest?.('.doc-note-title');
+      if (titleEl && e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        const note = titleEl.closest('.doc-interactive-note, .doc-custom-note, .onenote-sticky-note, .excel-floating-note, .doc-note-card');
+        note?.querySelector('.doc-note-body, .excel-note-body')?.focus();
+      }
+    });
+
     $('#insertStickyNoteBtn')?.addEventListener('click', () => {
+      if (window.DocFlow.currentMode === 'empty') {
+        showToast('Please open or create a document first', 'warning');
+        return;
+      }
+
+      // PDF Document mode support (Issue 3.a)
+      if (window.DocFlow.currentMode === 'pdf') {
+        const curPdfPage = document.querySelector('.pdf-page-wrap.visible') || 
+                           document.querySelector('.pdf-page-wrap') || 
+                           document.getElementById('pdfPages');
+        if (curPdfPage) {
+          if (getComputedStyle(curPdfPage).position === 'static') {
+            curPdfPage.style.position = 'relative';
+          }
+          const noteElem = createInteractiveNoteElement();
+          noteElem.style.position = 'absolute';
+          noteElem.style.left = '40px';
+          noteElem.style.top = '40px';
+          noteElem.style.zIndex = '50';
+          curPdfPage.appendChild(noteElem);
+          window.DocFlow.ImageManager?.attachLineListeners?.(noteElem);
+          noteElem.querySelector('.doc-note-body')?.focus();
+          showToast('Note inserted on PDF page', 'success');
+          return;
+        }
+      }
+
       if (window.DocFlow.currentMode !== 'edit') return;
       const excelContainer = document.querySelector('.excel-spreadsheet-container');
       if (excelContainer) {
@@ -6488,20 +6772,45 @@
           const noteDiv = document.createElement('div');
           noteDiv.className = 'excel-floating-note doc-note-card';
           noteDiv.setAttribute('data-target-coord', coord);
-          noteDiv.style.cssText = `position:absolute;left:${leftPos}px;top:${topPos}px;width:190px;min-height:95px;background:#fef9c3;border:1px solid #facc15;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);padding:8px 10px;z-index:35;font-size:12px;color:#1e293b;cursor:default;box-sizing:border-box;`;
+          noteDiv.style.cssText = `position:absolute;left:${leftPos}px;top:${topPos}px;width:190px;min-height:95px;background:#fef9c3;border:1.5px solid #facc15;border-left:5px solid #facc15;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);padding:8px 10px;z-index:35;font-size:12px;color:#0f172a;cursor:default;box-sizing:border-box;`;
           noteDiv.innerHTML = `
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-weight:700;font-size:11px;color:#854d0e;border-bottom:1px solid #fde047;padding-bottom:3px;cursor:move;user-select:none;" class="excel-note-header">
-              <span><i class="fas fa-note-sticky" style="color:#eab308;margin-right:4px;"></i> Note (${coord})</span>
-              <button type="button" class="excel-note-close-btn" style="border:none;background:transparent;cursor:pointer;color:#a16207;font-size:14px;padding:0 2px;line-height:1;" title="Delete Note">&times;</button>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-weight:700;font-size:11px;color:inherit;border-bottom:1px solid rgba(0,0,0,0.12);padding-bottom:3px;cursor:move;user-select:none;" class="excel-note-header">
+              <div style="display:flex;align-items:center;gap:4px;flex:1;min-width:0;">
+                <i class="fas fa-note-sticky doc-note-icon" title="Change note body background color" style="cursor:pointer;color:inherit;font-size:12px;"></i>
+                <span class="doc-note-title" contenteditable="true" spellcheck="false" role="textbox" aria-label="Note header name" style="outline:none;cursor:text;user-select:text;padding:1px 3px;border-radius:3px;min-width:24px;color:inherit;">Note</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <button type="button" class="doc-note-header-color-btn" title="Change note header background color" style="border:none;background:transparent;cursor:pointer;font-size:11px;color:inherit;opacity:0.8;padding:0 2px;" aria-label="Change header color"><i class="fas fa-palette"></i></button>
+                <input type="color" class="doc-note-hidden-color" value="#fef9c3" style="opacity:0;position:absolute;pointer-events:none;width:0;height:0;" aria-label="Note body color picker">
+                <input type="color" class="doc-note-hidden-header-color" value="#fde047" style="opacity:0;position:absolute;pointer-events:none;width:0;height:0;" aria-label="Note header color picker">
+                <button type="button" class="excel-note-close-btn doc-note-close-btn" style="border:none;background:transparent;cursor:pointer;color:inherit;font-size:14px;padding:0 2px;line-height:1;opacity:0.8;" title="Delete Note">&times;</button>
+              </div>
             </div>
-            <div class="excel-note-body" contenteditable="true" style="outline:none;min-height:50px;word-break:break-word;" data-placeholder="Enter note...">Write your note here...</div>
+            <div class="excel-note-body doc-note-body" contenteditable="true" style="outline:none;min-height:50px;word-break:break-word;color:inherit;" data-placeholder="Enter note..."></div>
           `;
+
+          noteDiv.querySelector('.doc-note-icon')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            noteDiv.querySelector('.doc-note-hidden-color')?.click();
+          });
+          noteDiv.querySelector('.doc-note-header-color-btn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            noteDiv.querySelector('.doc-note-hidden-header-color')?.click();
+          });
+          noteDiv.querySelector('.doc-note-hidden-color')?.addEventListener('input', (e) => {
+            const curHdr = noteDiv.querySelector('.doc-note-hidden-header-color')?.value;
+            applyNoteBackgroundColor(noteDiv, e.target.value, curHdr);
+          });
+          noteDiv.querySelector('.doc-note-hidden-header-color')?.addEventListener('input', (e) => {
+            const curBody = noteDiv.querySelector('.doc-note-hidden-color')?.value || noteDiv.style.backgroundColor || '#fef9c3';
+            applyNoteBackgroundColor(noteDiv, curBody, e.target.value);
+          });
 
           // Header dragging
           const hdr = noteDiv.querySelector('.excel-note-header');
           let isDragging = false, dragX = 0, dragY = 0, initLeft = 0, initTop = 0;
           hdr.addEventListener('mousedown', (e) => {
-            if (e.target.closest('.excel-note-close-btn')) return;
+            if (e.target.closest('.excel-note-close-btn, .doc-note-close-btn, .doc-note-title, .doc-note-icon, .doc-note-header-color-btn, input, button')) return;
             e.preventDefault();
             isDragging = true;
             dragX = e.clientX;
@@ -6574,7 +6883,6 @@
         noteElem.style.zIndex = '30';
         slideContent.appendChild(noteElem);
         window.DocFlow.ImageManager?.attachLineListeners?.(noteElem);
-        window.DocFlow.ImageManager?.selectLine?.(noteElem);
         noteElem.querySelector('.doc-note-body')?.focus();
         window.DocFlow.Editor?.notifyChange();
         window.DocFlow.Editor?.saveSnapshot?.(true);
@@ -6594,7 +6902,7 @@
           const inserted = document.getElementById(noteElem.id);
           if (inserted) {
             window.DocFlow.ImageManager?.attachLineListeners?.(inserted);
-            window.DocFlow.ImageManager?.selectLine?.(inserted);
+            inserted.querySelector('.doc-note-body')?.focus();
           }
         }, 50);
         showToast('Inserted Note', 'success');
@@ -7765,11 +8073,7 @@
       });
     }
 
-    document.addEventListener('mouseover', e => {
-      const commentEl = e.target.closest('.df-comment-highlight');
-      if (commentEl) showCommentPopover(commentEl);
-    });
-
+    // Problem 1.b: Comments appear ONLY when user clicks on or places cursor over commented text (no hover)
     document.addEventListener('click', e => {
       const commentEl = e.target.closest('.df-comment-highlight');
       if (commentEl) {
@@ -7779,6 +8083,22 @@
         if (activeCommentPopover) {
           activeCommentPopover.remove();
           activeCommentPopover = null;
+        }
+      }
+    });
+
+    document.addEventListener('selectionchange', () => {
+      if (document.activeElement && document.activeElement.closest('#editor')) {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          let node = sel.anchorNode;
+          if (node) {
+            if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+            const commentEl = node?.closest?.('.df-comment-highlight');
+            if (commentEl) {
+              showCommentPopover(commentEl);
+            }
+          }
         }
       }
     });
@@ -7887,49 +8207,48 @@
     }
     window.DocFlow.updateWordOnlyTools = updateWordOnlyTools;
 
-    // Problem 3: Lock & Protect Document
+    // Problem 3: Lock & Protect Document (c.txt Issue 1.a)
     function updateDocLockUI(tab) {
-      const banner = $('#docLockedBanner');
       const editor = $('#editor');
+      const btn = $('#viewProtectDocBtn');
       updateWordOnlyTools(tab);
       if (!tab) {
-        if (banner) banner.classList.remove('show');
+        if (btn) {
+          btn.innerHTML = '<i class="fas fa-lock" style="color:#e11d48;"></i> <span>Protect Doc</span>';
+          btn.classList.remove('active');
+          btn.title = 'Lock & Protect Document with Password/PIN';
+        }
         return;
       }
-      if (tab.isLocked) {
-        if (banner) banner.classList.add('show');
+      const isLocked = !!(tab.isLocked || FileLockStore.isLockedSync(tab.name));
+      tab.isLocked = isLocked;
+      if (isLocked) {
         if (editor) editor.contentEditable = 'false';
-        $('#viewProtectDocBtn')?.classList.add('active');
-        const btnSpan = $('#viewProtectDocBtn span');
-        if (btnSpan) btnSpan.textContent = 'Locked';
+        if (btn) {
+          btn.innerHTML = '<i class="fas fa-lock-open" style="color:#10b981;"></i> <span>Unlock Doc</span>';
+          btn.classList.add('active');
+          btn.title = 'Unlock Protected Document';
+        }
       } else {
-        if (banner) banner.classList.remove('show');
         if (editor && window.DocFlow.currentMode === 'edit') editor.contentEditable = 'true';
-        $('#viewProtectDocBtn')?.classList.remove('active');
-        const btnSpan = $('#viewProtectDocBtn span');
-        if (btnSpan) btnSpan.textContent = 'Protect Doc';
+        if (btn) {
+          btn.innerHTML = '<i class="fas fa-lock" style="color:#e11d48;"></i> <span>Protect Doc</span>';
+          btn.classList.remove('active');
+          btn.title = 'Lock & Protect Document with Password/PIN';
+        }
       }
     }
     window.DocFlow.updateDocLockUI = updateDocLockUI;
-
-    let pendingLockedItemToOpen = null;
-
-    function openUnlockDocModal(itemOrTab) {
-      if (!itemOrTab) return;
-      pendingLockedItemToOpen = itemOrTab;
-      const docName = itemOrTab.name || 'Document';
-      const pinInput = $('#docUnlockPinInput');
-      if (pinInput) pinInput.value = '';
-      const desc = $('#docUnlockModal p') || $('#docUnlockModalDesc');
-      if (desc) desc.textContent = `Enter password or PIN to unlock and open "${docName}":`;
-      window.DocFlow.UI?.openModal?.('#docUnlockModal');
-      setTimeout(() => pinInput?.focus(), 50);
-    }
 
     $('#viewProtectDocBtn')?.addEventListener('click', () => {
       const activeTab = window.DocFlow.UI?.Tabs?.get?.(window.DocFlow.UI.Tabs.activeId);
       if (!activeTab || window.DocFlow.currentMode === 'empty') {
         showToast('Please open a document first to lock or protect it', 'warning');
+        return;
+      }
+      const isLocked = !!(activeTab.isLocked || FileLockStore.isLockedSync(activeTab.name));
+      if (isLocked) {
+        openUnlockDocModal(activeTab);
         return;
       }
       const pinIn = $('#docProtectPinInput');
@@ -7957,49 +8276,50 @@
       }
       const pin = $('#docProtectPinInput')?.value.trim() || '';
       const docName = activeTab.name;
+      const tabIdToClose = activeTab.id;
 
-      // 1. Lock in FileLockStore (IndexedDB per-file password storage - Issue 3)
+      // 1. Lock in FileLockStore (IndexedDB & local storage)
       await FileLockStore.lock(docName, pin);
 
-      // 2. Mark in Recent Documents list
+      // 2. Mark in Recent Documents list with current content
       const list = Recent.getAll();
       const rec = list.find(d => d.name.toLowerCase() === docName.toLowerCase());
+      const currentContent = activeTab.content || $('#editor')?.innerHTML || '<p><br></p>';
       if (rec) {
         rec.isLocked = true;
         rec.hasPassword = !!pin;
+        rec.content = currentContent;
         Recent.saveAll(list);
       } else {
         Recent.add({
           name: docName,
-          content: activeTab.content || $('#editor')?.innerHTML || '<p><br></p>',
+          content: currentContent,
           type: activeTab.fileType || activeTab.type,
           isLocked: true,
           hasPassword: !!pin
         });
       }
 
-      // 3. Save tab content
+      // 3. Save tab content before closing
       window.DocFlow.UI?.Tabs?.saveCurrent?.();
 
       // 4. Close the modal
       window.DocFlow.UI?.closeModal?.('#docProtectModal');
 
-      // 5. Close the active file immediately upon lock (Issue 3)
-      window.DocFlow.UI?.Tabs?.close?.(activeTab.id, true);
+      // 5. Close the active file automatically from file tabs upon lock (c.txt Issue 1.a)
+      window.DocFlow.UI?.Tabs?.close?.(tabIdToClose, true);
 
-      // 6. Return to home screen and render recent files showing lock icon
-      window.DocFlow.switchMode?.('empty');
-      window.DocFlow.switchRibbonTab?.('home');
+      // If no tabs remain open, return to empty / home mode
+      if (!window.DocFlow.UI?.Tabs?.list?.length) {
+        window.DocFlow.switchMode?.('empty');
+        window.DocFlow.switchRibbonTab?.('home');
+      }
+
       Recent.render();
       Recent.renderDropdown();
 
-      // 7. Show correct notification (Issue 3)
+      // 6. Show correct notification
       showToast(`Document "${docName}" locked and protected successfully. File closed.`, 'success');
-    });
-
-    $('#docUnlockBannerBtn')?.addEventListener('click', () => {
-      const activeTab = window.DocFlow.UI?.Tabs?.get?.(window.DocFlow.UI.Tabs.activeId);
-      openUnlockDocModal(activeTab);
     });
 
     $('#docUnlockCloseBtn')?.addEventListener('click', () => {
@@ -8040,6 +8360,16 @@
       targetDoc.isLocked = false;
       if (targetDoc.lockPin) delete targetDoc.lockPin;
 
+      // Update matching tab if open
+      const openTab = window.DocFlow.UI?.Tabs?.list?.find(t => t.name.toLowerCase() === docName.toLowerCase());
+      if (openTab) {
+        openTab.isLocked = false;
+        if (openTab.lockPin) delete openTab.lockPin;
+      }
+      if (activeTab && activeTab.name.toLowerCase() === docName.toLowerCase()) {
+        activeTab.isLocked = false;
+      }
+
       // Update in Recent list
       const recents = Recent.getAll();
       const rec = recents.find(d => d.name.toLowerCase() === docName.toLowerCase());
@@ -8053,12 +8383,27 @@
       window.DocFlow.UI?.closeModal?.('#docUnlockModal');
       showToast(`Document "${docName}" unlocked successfully!`, 'success');
 
-      if (pendingLockedItemToOpen) {
-        const toOpen = pendingLockedItemToOpen;
-        pendingLockedItemToOpen = null;
-        Recent._proceedOpenDocument(toOpen);
-      } else if (activeTab) {
+      const wasPending = pendingLockedItemToOpen;
+      pendingLockedItemToOpen = null;
+
+      if (openTab) {
+        window.DocFlow.UI?.Tabs?.switchTo?.(openTab.id);
+        updateDocLockUI(openTab);
+        window.DocFlow.UI?.Tabs?.render?.();
+      } else if (wasPending) {
+        if (wasPending.fileObject && window.DocFlow.FileIO?.handleFile) {
+          window.DocFlow.FileIO.handleFile(wasPending.fileObject);
+        } else {
+          Recent._proceedOpenDocument(wasPending);
+        }
+      } else if (activeTab && activeTab.name.toLowerCase() === docName.toLowerCase()) {
         updateDocLockUI(activeTab);
+        window.DocFlow.UI?.Tabs?.render?.();
+      } else {
+        const itemToOpen = recents.find(d => d.name.toLowerCase() === docName.toLowerCase());
+        if (itemToOpen) {
+          Recent._proceedOpenDocument(itemToOpen);
+        }
       }
     });
 

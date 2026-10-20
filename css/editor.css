@@ -1104,18 +1104,12 @@ li input[type="checkbox"]:checked ~ span {
 }
 
 .onenote-sticky-note {
-  background: #fef08a !important;
-  color: #713f12 !important;
   border-left: 5px solid #eab308;
-  padding: 12px 16px;
-  border-radius: 0 8px 8px 0;
+  border-radius: 8px;
   margin: 14px 0;
-  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.15);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
   position: relative;
-}
-
-.onenote-sticky-note strong {
-  color: #713f12 !important;
+  overflow: hidden;
 }
 
 /* 4-Corner Image Resize Handles & 4-Way Move Handle (Issue 4) */
@@ -3542,8 +3536,7 @@ body:not([data-mode="empty"]).editor-statusbar-hidden #statusbar {
   margin: 0 !important;
   background-color: rgba(217, 119, 6, 0.22) !important;
   border-bottom: none !important;
-  text-decoration: underline dashed #b45309 2px !important;
-  text-underline-offset: 3px !important;
+  text-decoration: none !important;
   color: inherit !important;
   border-radius: 2px;
   cursor: pointer;
@@ -3556,7 +3549,7 @@ body:not([data-mode="empty"]).editor-statusbar-hidden #statusbar {
 .df-comment-highlight.active {
   background-color: rgba(217, 119, 6, 0.38) !important;
   border-bottom: none !important;
-  text-decoration: underline solid #b45309 2px !important;
+  text-decoration: none !important;
 }
 
 .df-comment-popover {
@@ -3618,43 +3611,6 @@ body:not([data-mode="empty"]).editor-statusbar-hidden #statusbar {
   color: #ffffff;
 }
 
-/* ==========================================================================
-   Problem 3: Document Lock & Protection Banner
-   ========================================================================== */
-.doc-locked-banner {
-  display: none;
-  align-items: center;
-  justify-content: space-between;
-  background: linear-gradient(135deg, #fff1f2, #ffe4e6);
-  border: 1px solid #fecdd3;
-  color: #9f1239;
-  padding: 8px 18px;
-  font-size: 13px;
-  font-weight: 600;
-  z-index: 90;
-}
-
-.doc-locked-banner.show {
-  display: flex;
-}
-
-.doc-unlock-btn {
-  background: #e11d48;
-  color: #ffffff;
-  border: none;
-  border-radius: 4px;
-  padding: 4px 12px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.doc-unlock-btn:hover {
-  background: #be123c;
-}
 
 /* Word Only Tools */
 .word-only-tool {
@@ -4269,3 +4225,100 @@ tr.excel-page-break-bottom td {
     box-shadow: none !important;
   }
 }
+
+/* Word-style Shape In-Text Editing (Issue 3.b) */
+.doc-shape-container {
+  position: relative;
+}
+.doc-shape-text-editor {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  outline: none;
+  word-break: break-word;
+  overflow: hidden;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  z-index: 2;
+  cursor: text;
+  pointer-events: auto;
+}
+.doc-shape-text-editor:empty::before {
+  content: attr(data-placeholder);
+  opacity: 0.6;
+}
+
+/* Note Printing Preservation & Interaction (Issue 3.a) */
+.doc-custom-note,
+.doc-interactive-note,
+.onenote-sticky-note,
+.excel-floating-note,
+.doc-note-card {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+  color-adjust: exact !important;
+}
+
+@media print {
+  .doc-custom-note,
+  .doc-interactive-note,
+  .onenote-sticky-note,
+  .excel-floating-note,
+  .doc-note-card {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    box-shadow: none !important;
+  }
+  .doc-note-tools,
+  .doc-note-colors,
+  .doc-note-hidden-color,
+  .doc-note-hidden-header-color,
+  .doc-note-header-color-btn,
+  .doc-note-close-btn,
+  .excel-note-close-btn,
+  .df-line-plus-btn,
+  .df-line-move-handle,
+  .df-line-resize-handle,
+  .df-line-popover {
+    display: none !important;
+  }
+}
+
+/* Hide doc-locked-banner per user request */
+.doc-locked-banner {
+  display: none !important;
+}
+
+/* Editable Note Header Title Styling */
+.doc-note-title {
+  display: inline-block;
+  cursor: text;
+  outline: none;
+  transition: background 0.15s ease;
+}
+.doc-note-title:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+.doc-note-title:focus {
+  background: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 0 0 1.5px currentColor;
+}
+.doc-note-icon,
+.doc-note-header-color-btn {
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.doc-note-icon:hover,
+.doc-note-header-color-btn:hover {
+  transform: scale(1.15);
+  opacity: 0.95;
+}
+

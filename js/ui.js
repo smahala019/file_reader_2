@@ -438,6 +438,11 @@
           }
         }
       }
+
+      // Issue 1.a & Issue 2: Ensure doc lock UI and tab list are rendered immediately on tab activation
+      window.DocFlow?.updateDocLockUI?.(tab);
+      this.render();
+      this.save();
     },
 
     switchTo(id) {
@@ -580,9 +585,11 @@
         el.setAttribute('role', 'tab');
         el.setAttribute('aria-selected', tab.id === this.activeId ? 'true' : 'false');
         el.dataset.id = tab.id;
+        const isTabLocked = !!(tab.isLocked || window.DocFlow?.FileLockStore?.isLockedSync?.(tab.name));
+        const lockIconHtml = isTabLocked ? '<i class="fas fa-lock" style="color:#e11d48;font-size:10px;margin-right:2px;" title="Locked Document"></i> ' : '';
         el.innerHTML = `
           <span class="tab-save-dot ${tab.modified ? 'unsaved' : 'saved'}" title="${tab.modified ? 'Unsaved changes (Red)' : 'Saved (Green)'}"></span>
-          <span class="tab-name" title="${escHtml(tab.name)}">${escHtml(tab.name)}</span>
+          ${lockIconHtml}<span class="tab-name" title="${escHtml(tab.name)}">${escHtml(tab.name)}</span>
           <button class="tab-more-btn" title="Options for ${escHtml(tab.name)}" aria-label="Tab options"><i class="fas fa-ellipsis-vertical"></i></button>
           <button class="tab-close" title="Close tab" aria-label="Close ${escHtml(tab.name)}">&times;</button>
           <div class="tab-menu-dropdown" role="menu">
@@ -641,6 +648,10 @@
 
       const isHome = document.body.dataset.mode === 'empty' || !this.activeId;
       tabBar.classList.toggle('visible', this.list.length > 0 && !isHome);
+      const activeTabEl = tabList.querySelector('.tab.active');
+      if (activeTabEl) {
+        try { activeTabEl.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'nearest' }); } catch (_) {}
+      }
     },
 
     save() {

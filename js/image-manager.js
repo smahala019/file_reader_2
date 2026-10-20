@@ -867,15 +867,88 @@
     positionAllHandles(img);
   }
 
+  function getContrastColorForBackground(bg) {
+    if (!bg || bg === 'none' || bg === 'transparent') {
+      return '#0f172a';
+    }
+    let r = 255, g = 255, b = 255;
+    if (bg.startsWith('#')) {
+      let hex = bg.slice(1);
+      if (hex.length === 3) {
+        hex = hex.split('').map(c => c + c).join('');
+      }
+      if (hex.length >= 6) {
+        r = parseInt(hex.substring(0, 2), 16) || 0;
+        g = parseInt(hex.substring(2, 4), 16) || 0;
+        b = parseInt(hex.substring(4, 6), 16) || 0;
+      }
+    } else if (bg.startsWith('rgb')) {
+      const match = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+      if (match) {
+        r = parseInt(match[1], 10);
+        g = parseInt(match[2], 10);
+        b = parseInt(match[3], 10);
+      }
+    }
+    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    return yiq >= 140 ? '#0f172a' : '#ffffff';
+  }
+  window.DocFlow.getContrastColorForBackground = getContrastColorForBackground;
+
+  function addOrEditTextInShape(shape) {
+    if (!shape) return;
+    let textEditor = shape.querySelector('.doc-shape-text-editor');
+    if (!textEditor) {
+      textEditor = document.createElement('div');
+      textEditor.className = 'doc-shape-text-editor';
+      textEditor.contentEditable = 'true';
+      textEditor.setAttribute('role', 'textbox');
+      textEditor.setAttribute('aria-multiline', 'true');
+      textEditor.setAttribute('spellcheck', 'true');
+      textEditor.dataset.placeholder = 'Type text here...';
+      shape.appendChild(textEditor);
+
+      textEditor.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          e.stopPropagation();
+          if (!e.shiftKey) {
+            e.preventDefault();
+            document.execCommand('insertLineBreak');
+          }
+        }
+      });
+      textEditor.addEventListener('input', () => {
+        window.DocFlow.Editor?.notifyChange?.();
+        window.DocFlow.UI?.Tabs?.saveCurrent?.();
+      });
+    }
+
+    const fill = shape.dataset.fill || shape.querySelector('path, rect, polygon, circle, ellipse')?.getAttribute('fill') || '#e85d04';
+    const textColor = getContrastColorForBackground(fill);
+    textEditor.style.color = textColor;
+
+    textEditor.focus();
+    const sel = window.getSelection();
+    if (sel) {
+      const range = document.createRange();
+      range.selectNodeContents(textEditor);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  }
+
   function showImageToolbar(img) {
     if (activeImageToolbar) activeImageToolbar.remove();
 
+    const isShape = !!(img && img.classList && img.classList.contains('doc-shape-container'));
     const currentWrap = img.dataset.wrap || img.dataset.align || 'inline';
     const currentWidth = img.style.width || '';
 
     const toolbar = document.createElement('div');
     toolbar.className = 'df-img-toolbar';
     toolbar.innerHTML = `
+      ${isShape ? '<button class="df-img-btn" data-action="shape-text" title="Add / Edit Text in Shape" style="font-weight:700;color:var(--accent,#0284c7);"><i class="fas fa-font"></i> Text</button><div class="df-img-sep"></div>' : ''}
       <select class="df-img-select" id="dfImgSizeSelect" title="Image Size">
         <option value="25%" ${currentWidth === '25%' ? 'selected' : ''}>25% Size</option>
         <option value="50%" ${currentWidth === '50%' ? 'selected' : ''}>50% Size</option>
@@ -967,7 +1040,9 @@
       e.stopPropagation();
 
       const action = btn.dataset.action;
-      if (action === 'align-left') {
+      if (action === 'shape-text') {
+        addOrEditTextInShape(img);
+      } else if (action === 'align-left') {
         setImageWrapMode(img, 'left');
         showImageToolbar(img);
         if (activeResizeHandle) positionResizeHandle(img, activeResizeHandle);
@@ -1344,7 +1419,13 @@
     });
 
     document.addEventListener('keydown', e => {
+      if (document.activeElement?.closest?.('.doc-shape-text-editor') || e.target?.closest?.('.doc-shape-text-editor')) {
+        return; // Allow typing/backspace inside shape text editor without deleting shape
+      }
       if (selectedImage && (e.key === 'Delete' || e.key === 'Backspace')) {
+        if (selectedImage.contains(document.activeElement) && document.activeElement.isContentEditable) {
+          return; // Allow normal typing/backspace inside shape text editor
+        }
         e.preventDefault();
         const parentDock = selectedImage.closest('.excel-chart-dock-area');
         selectedImage.remove();
@@ -1411,8 +1492,8 @@
   function attachLineListeners(line) {
     line.style.cursor = 'pointer';
     line.addEventListener('click', e => {
-      // If clicking inside editable text area of an already selected note, allow typing
-      if (e.target.closest('.doc-note-body') && selectedLine === line) {
+      // If clicking inside editable text area, color tools, title, or buttons of a note, allow interaction without hijacking
+      if (e.target.closest('.doc-note-body, .excel-note-body, .doc-note-header, .excel-note-header, .doc-note-color-btn, .doc-note-color-input, .doc-note-close-btn, .excel-note-close-btn, .doc-note-title, .doc-note-icon, .doc-note-header-color-btn')) {
         return;
       }
       e.stopPropagation();
@@ -1674,19 +1755,35 @@
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;">
         <div>
-          <label style="font-size:11px;font-weight:600;display:block;margin-bottom:4px;">${isNote ? 'Note & Accent Color:' : 'Line Color:'}</label>
+          <label style="font-size:11px;font-weight:600;display:block;margin-bottom:4px;">${isNote ? 'Note Body Color:' : 'Line Color:'}</label>
           <div style="display:flex;gap:6px;align-items:center;">
-            <input type="color" id="dfLinePopColor" value="${isNote ? '#eab308' : '#2563eb'}" style="width:34px;height:26px;padding:0;border:1px solid var(--border);border-radius:4px;cursor:pointer;">
+            <input type="color" id="dfLinePopColor" value="${isNote ? (line.style.backgroundColor || '#fef08a') : '#2563eb'}" style="width:34px;height:26px;padding:0;border:1px solid var(--border);border-radius:4px;cursor:pointer;">
             <div style="display:flex;gap:4px;">
-              <span class="df-line-color-swatch" data-color="#eab308" style="width:18px;height:18px;background:#eab308;border-radius:3px;cursor:pointer;border:1px solid rgba(0,0,0,0.15);" title="Yellow"></span>
-              <span class="df-line-color-swatch" data-color="#2563eb" style="width:18px;height:18px;background:#2563eb;border-radius:3px;cursor:pointer;" title="Blue"></span>
-              <span class="df-line-color-swatch" data-color="#16a34a" style="width:18px;height:18px;background:#16a34a;border-radius:3px;cursor:pointer;" title="Green"></span>
-              <span class="df-line-color-swatch" data-color="#ea580c" style="width:18px;height:18px;background:#ea580c;border-radius:3px;cursor:pointer;" title="Orange"></span>
-              <span class="df-line-color-swatch" data-color="#8b5cf6" style="width:18px;height:18px;background:#8b5cf6;border-radius:3px;cursor:pointer;" title="Purple"></span>
-              <span class="df-line-color-swatch" data-color="#0f172a" style="width:18px;height:18px;background:#0f172a;border-radius:3px;cursor:pointer;" title="Dark"></span>
+              <span class="df-line-color-swatch" data-target="body" data-color="#fef08a" style="width:18px;height:18px;background:#fef08a;border-radius:3px;cursor:pointer;border:1px solid rgba(0,0,0,0.15);" title="Yellow"></span>
+              <span class="df-line-color-swatch" data-target="body" data-color="#dcfce7" style="width:18px;height:18px;background:#dcfce7;border-radius:3px;cursor:pointer;border:1px solid rgba(0,0,0,0.15);" title="Green"></span>
+              <span class="df-line-color-swatch" data-target="body" data-color="#e0f2fe" style="width:18px;height:18px;background:#e0f2fe;border-radius:3px;cursor:pointer;border:1px solid rgba(0,0,0,0.15);" title="Blue"></span>
+              <span class="df-line-color-swatch" data-target="body" data-color="#fce7f3" style="width:18px;height:18px;background:#fce7f3;border-radius:3px;cursor:pointer;border:1px solid rgba(0,0,0,0.15);" title="Pink"></span>
+              <span class="df-line-color-swatch" data-target="body" data-color="#ffedd5" style="width:18px;height:18px;background:#ffedd5;border-radius:3px;cursor:pointer;border:1px solid rgba(0,0,0,0.15);" title="Orange"></span>
+              <span class="df-line-color-swatch" data-target="body" data-color="#0f172a" style="width:18px;height:18px;background:#0f172a;border-radius:3px;cursor:pointer;" title="Dark"></span>
             </div>
           </div>
         </div>
+        ${isNote ? `
+        <div>
+          <label style="font-size:11px;font-weight:600;display:block;margin-bottom:4px;">Note Header Color:</label>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input type="color" id="dfLinePopHeaderColor" value="${line.querySelector('.doc-note-header, .excel-note-header')?.style?.backgroundColor || '#fde047'}" style="width:34px;height:26px;padding:0;border:1px solid var(--border);border-radius:4px;cursor:pointer;">
+            <div style="display:flex;gap:4px;">
+              <span class="df-line-color-swatch" data-target="header" data-color="#fde047" style="width:18px;height:18px;background:#fde047;border-radius:3px;cursor:pointer;border:1px solid rgba(0,0,0,0.15);" title="Yellow"></span>
+              <span class="df-line-color-swatch" data-target="header" data-color="#86efac" style="width:18px;height:18px;background:#86efac;border-radius:3px;cursor:pointer;border:1px solid rgba(0,0,0,0.15);" title="Green"></span>
+              <span class="df-line-color-swatch" data-target="header" data-color="#7dd3fc" style="width:18px;height:18px;background:#7dd3fc;border-radius:3px;cursor:pointer;border:1px solid rgba(0,0,0,0.15);" title="Blue"></span>
+              <span class="df-line-color-swatch" data-target="header" data-color="#f472b6" style="width:18px;height:18px;background:#f472b6;border-radius:3px;cursor:pointer;border:1px solid rgba(0,0,0,0.15);" title="Pink"></span>
+              <span class="df-line-color-swatch" data-target="header" data-color="#fdba74" style="width:18px;height:18px;background:#fdba74;border-radius:3px;cursor:pointer;border:1px solid rgba(0,0,0,0.15);" title="Orange"></span>
+              <span class="df-line-color-swatch" data-target="header" data-color="#1e293b" style="width:18px;height:18px;background:#1e293b;border-radius:3px;cursor:pointer;" title="Dark"></span>
+            </div>
+          </div>
+        </div>
+        ` : ''}
         <div>
           <label style="font-size:11px;font-weight:600;display:block;margin-bottom:4px;">${isNote ? 'Width & Size:' : 'Width & Thickness:'}</label>
           <div style="display:flex;gap:6px;">
@@ -1752,16 +1849,26 @@
 
       if (isNote) {
         line.style.width = width;
-        line.style.borderColor = color;
-        line.style.borderLeft = `5px solid ${color}`;
-        line.style.backgroundColor = color === '#0f172a' ? 'rgba(15,23,42,0.08)' : (color + '22');
-        const hdr = line.querySelector('.doc-note-header');
-        if (hdr) {
-          hdr.style.color = color;
-          hdr.style.borderBottom = `1px solid ${color}44`;
+        const bodyColor = popover.querySelector('#dfLinePopColor')?.value || '#fef08a';
+        const hdrColor = popover.querySelector('#dfLinePopHeaderColor')?.value;
+        if (window.DocFlow?.applyNoteBackgroundColor) {
+          window.DocFlow.applyNoteBackgroundColor(line, bodyColor, hdrColor);
+        } else {
+          line.style.setProperty('background-color', bodyColor, 'important');
+          line.style.borderColor = bodyColor;
+          line.style.borderLeft = `5px solid ${bodyColor}`;
+          const body = line.querySelector('.doc-note-body, .excel-note-body');
+          if (body) {
+            body.style.setProperty('background-color', bodyColor, 'important');
+            body.style.color = getContrastColorForBackground(bodyColor);
+          }
+          const hdr = line.querySelector('.doc-note-header, .excel-note-header');
+          if (hdr) {
+            const actualHdr = hdrColor || bodyColor;
+            hdr.style.setProperty('background-color', actualHdr, 'important');
+            hdr.style.color = getContrastColorForBackground(actualHdr);
+          }
         }
-        const icon = line.querySelector('.fa-note-sticky');
-        if (icon) icon.style.color = color;
       } else {
         const height = popover.querySelector('#dfLinePopHeight')?.value || '2px';
         const style = popover.querySelector('#dfLinePopStyle')?.value || 'solid';
@@ -1787,8 +1894,14 @@
     popover.querySelectorAll('.df-line-color-swatch').forEach(swatch => {
       swatch.addEventListener('click', () => {
         const c = swatch.dataset.color;
-        const colorInput = popover.querySelector('#dfLinePopColor');
-        if (colorInput) colorInput.value = c;
+        const target = swatch.dataset.target;
+        if (target === 'header') {
+          const hdrInput = popover.querySelector('#dfLinePopHeaderColor');
+          if (hdrInput) hdrInput.value = c;
+        } else {
+          const colorInput = popover.querySelector('#dfLinePopColor');
+          if (colorInput) colorInput.value = c;
+        }
         applyStyle();
       });
     });
@@ -1804,8 +1917,17 @@
   function attachShapeListeners(shape) {
     shape.setAttribute('draggable', 'false');
     shape.addEventListener('click', e => {
+      // If clicking inside the shape text editor, allow typing without reselecting toolbar
+      if (e.target.closest('.doc-shape-text-editor')) {
+        return;
+      }
       e.stopPropagation();
       selectImage(shape);
+    });
+
+    shape.addEventListener('dblclick', e => {
+      e.stopPropagation();
+      addOrEditTextInShape(shape);
     });
 
     // Support dragging shape directly in Excel

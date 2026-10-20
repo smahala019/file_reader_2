@@ -3349,6 +3349,21 @@
         e.preventDefault();
         insertHtmlAtCursor('&nbsp;&nbsp;&nbsp;&nbsp;');
       } else if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+        const noteOrShape = e.target.closest?.('.doc-note-body, .excel-note-body, .doc-shape-text-editor, .doc-note-title') ||
+          (window.getSelection()?.anchorNode?.parentElement?.closest?.('.doc-note-body, .excel-note-body, .doc-shape-text-editor, .doc-note-title'));
+        if (noteOrShape) {
+          e.preventDefault();
+          e.stopPropagation();
+          const range = document.createRange();
+          range.selectNodeContents(noteOrShape);
+          const sel = window.getSelection();
+          if (sel) {
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+          return;
+        }
+
         const excelContainer = editor.querySelector('.excel-spreadsheet-container') || e.target.closest('.excel-spreadsheet-container');
         if (excelContainer) {
           e.preventDefault();
