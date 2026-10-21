@@ -2893,15 +2893,24 @@ body.slide-deck-mode .editor-wrap {
 
 @media (max-width: 480px) {
   body.slide-deck-mode .pptx-slide-sidebar {
-    width: 85px !important;
-    min-width: 80px !important;
-    max-width: 90px !important;
+    width: 105px !important;
+    min-width: 95px !important;
+    max-width: 115px !important;
   }
-  .pptx-sidebar-header span {
-    display: none !important;
+  .pptx-sidebar-header {
+    padding: 6px 4px !important;
+  }
+  .pptx-sidebar-title {
+    font-size: 11px !important;
+    gap: 4px !important;
+    white-space: nowrap !important;
+  }
+  .pptx-sidebar-title span {
+    display: inline !important;
+    white-space: nowrap !important;
   }
   .pptx-thumbnail-preview {
-    height: 38px !important;
+    height: 40px !important;
   }
   .pptx-slide-card {
     padding: 10px !important;

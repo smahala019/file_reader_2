@@ -1,6 +1,0 @@
-save,pptnot write,page border more line,md cheat sheet css,html format button not work for other document only for html 
-
-**Important for ai model **
-Not merge and  remove the functionality of any other documents ,if they are working properly 
-not change any other keyboard functionality for any document if not tell by me to change 
-not break other ctrl+a (select all ) functionality of any document specially excel

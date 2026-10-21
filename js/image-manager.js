@@ -918,8 +918,19 @@
         }
       });
       textEditor.addEventListener('input', () => {
+        if (activeImageToolbar && selectedImage === shape) {
+          positionImageToolbar(shape, activeImageToolbar);
+        }
+        positionAllHandles(shape);
         window.DocFlow.Editor?.notifyChange?.();
         window.DocFlow.UI?.Tabs?.saveCurrent?.();
+      });
+      textEditor.addEventListener('focus', () => {
+        if (selectedImage !== shape) {
+          selectImage(shape);
+        } else if (activeImageToolbar) {
+          positionImageToolbar(shape, activeImageToolbar);
+        }
       });
     }
 
@@ -1305,7 +1316,7 @@
     if (!editor) return;
     editor.querySelectorAll('img').forEach(attachImageListeners);
     editor.querySelectorAll('.doc-shape-container, .doc-chart-container').forEach(attachShapeListeners);
-    editor.querySelectorAll('hr, .doc-custom-line, .doc-custom-note, .doc-interactive-note, .onenote-sticky-note').forEach(attachLineListeners);
+    editor.querySelectorAll('hr, .doc-custom-line, .doc-custom-note, .doc-interactive-note, .onenote-sticky-note, .excel-floating-note, .doc-note-card').forEach(attachLineListeners);
   }
 
   function setupDocumentImageListeners() {
@@ -1359,10 +1370,10 @@
             if (node.tagName === 'IMG') attachImageListeners(node);
             else node.querySelectorAll?.('img').forEach(attachImageListeners);
 
-            if (node.tagName === 'HR' || node.classList?.contains('doc-custom-line') || node.classList?.contains('doc-custom-note') || node.classList?.contains('doc-interactive-note') || node.classList?.contains('onenote-sticky-note')) {
+            if (node.tagName === 'HR' || node.classList?.contains('doc-custom-line') || node.classList?.contains('doc-custom-note') || node.classList?.contains('doc-interactive-note') || node.classList?.contains('onenote-sticky-note') || node.classList?.contains('excel-floating-note') || node.classList?.contains('doc-note-card')) {
               attachLineListeners(node);
             } else {
-              node.querySelectorAll?.('hr, .doc-custom-line, .doc-custom-note, .doc-interactive-note, .onenote-sticky-note').forEach(attachLineListeners);
+              node.querySelectorAll?.('hr, .doc-custom-line, .doc-custom-note, .doc-interactive-note, .onenote-sticky-note, .excel-floating-note, .doc-note-card').forEach(attachLineListeners);
             }
 
             if (node.classList?.contains('doc-shape-container') || node.classList?.contains('doc-chart-container')) {
@@ -1378,13 +1389,13 @@
 
     // Initial attach for shapes, charts, lines, and notes
     editor.querySelectorAll('.doc-shape-container, .doc-chart-container').forEach(attachShapeListeners);
-    editor.querySelectorAll('hr, .doc-custom-line, .doc-custom-note, .doc-interactive-note, .onenote-sticky-note').forEach(attachLineListeners);
+    editor.querySelectorAll('hr, .doc-custom-line, .doc-custom-note, .doc-interactive-note, .onenote-sticky-note, .excel-floating-note, .doc-note-card').forEach(attachLineListeners);
 
     document.addEventListener('click', e => {
       if (selectedImage && !e.target.closest('.df-img-toolbar') && !e.target.closest('.df-resize-handle') && !e.target.closest('.df-img-move-handle') && e.target !== selectedImage && !selectedImage.contains(e.target)) {
         deselectImage();
       }
-      if (selectedLine && !e.target.closest('.df-line-move-handle') && !e.target.closest('.df-line-resize-handle') && !e.target.closest('.df-line-plus-btn') && !e.target.closest('.df-line-popover') && e.target !== selectedLine && !selectedLine.contains(e.target)) {
+      if (selectedLine && !e.target.closest('.df-line-move-handle') && !e.target.closest('.df-line-resize-handle') && !e.target.closest('.df-line-plus-btn') && !e.target.closest('.df-line-popover') && !e.target.closest('.df-note-toolbar') && e.target !== selectedLine && !selectedLine.contains(e.target)) {
         deselectLine();
       }
     });
@@ -1481,24 +1492,47 @@
   let activeLineResizeHandles = [];
   let activeLinePlusBtn = null;
   let activeLinePopover = null;
+  let activeNoteToolbar = null;
 
   function isNoteElement(el) {
     if (!el || !el.classList) return false;
     return el.classList.contains('doc-custom-note') || 
            el.classList.contains('doc-interactive-note') || 
-           el.classList.contains('onenote-sticky-note');
+           el.classList.contains('onenote-sticky-note') ||
+           el.classList.contains('excel-floating-note') ||
+           el.classList.contains('doc-note-card');
   }
 
   function attachLineListeners(line) {
     line.style.cursor = 'pointer';
     line.addEventListener('click', e => {
-      // If clicking inside editable text area, color tools, title, or buttons of a note, allow interaction without hijacking
-      if (e.target.closest('.doc-note-body, .excel-note-body, .doc-note-header, .excel-note-header, .doc-note-color-btn, .doc-note-color-input, .doc-note-close-btn, .excel-note-close-btn, .doc-note-title, .doc-note-icon, .doc-note-header-color-btn')) {
+      if (e.target.closest('.doc-note-close-btn, .excel-note-close-btn, .doc-note-color-input, .doc-note-hidden-color, .doc-note-hidden-header-color')) {
         return;
       }
-      e.stopPropagation();
-      selectLine(line);
+      if (selectedLine !== line) {
+        selectLine(line);
+      } else {
+        positionLineHandles(line);
+        if (activeNoteToolbar && isNoteElement(line)) positionNoteToolbar(line, activeNoteToolbar);
+      }
     });
+
+    if (isNoteElement(line)) {
+      const noteBody = line.querySelector('.doc-note-body, .excel-note-body');
+      if (noteBody) {
+        noteBody.addEventListener('focus', () => {
+          if (selectedLine !== line) {
+            selectLine(line);
+          } else if (activeNoteToolbar) {
+            positionNoteToolbar(line, activeNoteToolbar);
+          }
+        });
+        noteBody.addEventListener('input', () => {
+          positionLineHandles(line);
+          if (activeNoteToolbar) positionNoteToolbar(line, activeNoteToolbar);
+        });
+      }
+    }
   }
 
   function selectLine(line) {
@@ -1507,6 +1541,9 @@
     selectedLine = line;
     line.classList.add('df-selected-line');
     createLineHandles(line);
+    if (isNoteElement(line)) {
+      showNoteToolbar(line);
+    }
   }
 
   function deselectLine() {
@@ -1528,6 +1565,109 @@
       activeLinePopover.remove();
       activeLinePopover = null;
     }
+    if (activeNoteToolbar) {
+      activeNoteToolbar.remove();
+      activeNoteToolbar = null;
+    }
+  }
+
+  function showNoteToolbar(note) {
+    if (activeNoteToolbar) activeNoteToolbar.remove();
+
+    const curWidth = note.style.width || '280px';
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'df-img-toolbar df-note-toolbar';
+    toolbar.innerHTML = `
+      <span style="font-size:11px;font-weight:700;color:var(--text-muted);display:flex;align-items:center;gap:4px;padding:0 4px;"><i class="fas fa-note-sticky" style="color:#eab308;"></i> Note</span>
+      <div class="df-img-sep"></div>
+      <button class="df-img-btn" data-note-action="color-yellow" title="Yellow" style="padding:2px;"><span style="display:inline-block;width:14px;height:14px;background:#fef08a;border-radius:3px;border:1px solid rgba(0,0,0,0.2);"></span></button>
+      <button class="df-img-btn" data-note-action="color-green" title="Green" style="padding:2px;"><span style="display:inline-block;width:14px;height:14px;background:#dcfce7;border-radius:3px;border:1px solid rgba(0,0,0,0.2);"></span></button>
+      <button class="df-img-btn" data-note-action="color-blue" title="Blue" style="padding:2px;"><span style="display:inline-block;width:14px;height:14px;background:#e0f2fe;border-radius:3px;border:1px solid rgba(0,0,0,0.2);"></span></button>
+      <button class="df-img-btn" data-note-action="color-pink" title="Pink" style="padding:2px;"><span style="display:inline-block;width:14px;height:14px;background:#fce7f3;border-radius:3px;border:1px solid rgba(0,0,0,0.2);"></span></button>
+      <button class="df-img-btn" data-note-action="color-orange" title="Orange" style="padding:2px;"><span style="display:inline-block;width:14px;height:14px;background:#ffedd5;border-radius:3px;border:1px solid rgba(0,0,0,0.2);"></span></button>
+      <button class="df-img-btn" data-note-action="color-dark" title="Dark" style="padding:2px;"><span style="display:inline-block;width:14px;height:14px;background:#1e293b;border-radius:3px;border:1px solid rgba(0,0,0,0.2);"></span></button>
+      <div class="df-img-sep"></div>
+      <select class="df-img-select" id="dfNoteWidthSelect" title="Note Width">
+        <option value="280px" ${curWidth === '280px' ? 'selected' : ''}>280px Compact</option>
+        <option value="360px" ${curWidth === '360px' ? 'selected' : ''}>360px Standard</option>
+        <option value="460px" ${curWidth === '460px' ? 'selected' : ''}>460px Wide</option>
+        <option value="60%" ${curWidth === '60%' ? 'selected' : ''}>60% Page</option>
+        <option value="80%" ${curWidth === '80%' ? 'selected' : ''}>80% Page</option>
+        <option value="100%" ${curWidth === '100%' ? 'selected' : ''}>100% Full</option>
+      </select>
+      <div class="df-img-sep"></div>
+      <button class="df-img-btn" data-note-action="customize" title="Customize Colors & Details"><i class="fas fa-palette"></i> Style</button>
+      <button class="df-img-btn danger" data-note-action="delete" title="Delete Note"><i class="fas fa-trash-can"></i></button>
+    `;
+
+    document.body.appendChild(toolbar);
+    activeNoteToolbar = toolbar;
+    positionNoteToolbar(note, toolbar);
+
+    const colorMap = {
+      'color-yellow': { body: '#fef08a', hdr: '#fde047' },
+      'color-green': { body: '#dcfce7', hdr: '#86efac' },
+      'color-blue': { body: '#e0f2fe', hdr: '#7dd3fc' },
+      'color-pink': { body: '#fce7f3', hdr: '#f472b6' },
+      'color-orange': { body: '#ffedd5', hdr: '#fdba74' },
+      'color-dark': { body: '#0f172a', hdr: '#1e293b' }
+    };
+
+    toolbar.addEventListener('click', e => {
+      const btn = e.target.closest('[data-note-action]');
+      if (!btn) return;
+      e.stopPropagation();
+      const action = btn.dataset.noteAction;
+      if (colorMap[action]) {
+        const { body, hdr } = colorMap[action];
+        if (window.DocFlow?.applyNoteBackgroundColor) {
+          window.DocFlow.applyNoteBackgroundColor(note, body, hdr);
+        } else {
+          note.style.setProperty('background-color', body, 'important');
+          note.style.borderColor = body;
+          const bEl = note.querySelector('.doc-note-body, .excel-note-body');
+          if (bEl) bEl.style.setProperty('background-color', body, 'important');
+          const hEl = note.querySelector('.doc-note-header, .excel-note-header');
+          if (hEl) hEl.style.setProperty('background-color', hdr, 'important');
+        }
+        window.DocFlow.Editor?.notifyChange?.();
+      } else if (action === 'customize') {
+        toggleLinePopover(note);
+      } else if (action === 'delete') {
+        note.remove();
+        deselectLine();
+        window.DocFlow.Editor?.notifyChange?.();
+        showToast('Note deleted', 'info');
+      }
+    });
+
+    const wSelect = toolbar.querySelector('#dfNoteWidthSelect');
+    wSelect?.addEventListener('change', e => {
+      note.style.width = e.target.value;
+      positionLineHandles(note);
+      positionNoteToolbar(note, toolbar);
+      window.DocFlow.Editor?.notifyChange?.();
+    });
+  }
+
+  function positionNoteToolbar(note, toolbar) {
+    if (!note || !toolbar) return;
+    const rect = note.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) return;
+    const tbRect = toolbar.getBoundingClientRect();
+
+    let top = rect.top - tbRect.height - 8;
+    let left = rect.left + (rect.width / 2) - (tbRect.width / 2);
+
+    if (top < 10) top = rect.bottom + 8;
+    if (left < 10) left = 10;
+    if (left + tbRect.width > window.innerWidth - 10) {
+      left = window.innerWidth - tbRect.width - 10;
+    }
+
+    toolbar.style.top = top + 'px';
+    toolbar.style.left = left + 'px';
   }
 
   function createLineHandles(line) {
@@ -1736,6 +1876,10 @@
       activeLinePopover.style.left = Math.min(window.innerWidth - 300, rect.right - 40) + 'px';
       activeLinePopover.style.top = (rect.top + 20) + 'px';
     }
+
+    if (activeNoteToolbar && isNoteElement(line)) {
+      positionNoteToolbar(line, activeNoteToolbar);
+    }
   }
 
   function toggleLinePopover(line) {
@@ -1917,12 +2061,12 @@
   function attachShapeListeners(shape) {
     shape.setAttribute('draggable', 'false');
     shape.addEventListener('click', e => {
-      // If clicking inside the shape text editor, allow typing without reselecting toolbar
-      if (e.target.closest('.doc-shape-text-editor')) {
-        return;
+      if (selectedImage !== shape) {
+        selectImage(shape);
+      } else {
+        positionAllHandles(shape);
+        if (activeImageToolbar) positionImageToolbar(shape, activeImageToolbar);
       }
-      e.stopPropagation();
-      selectImage(shape);
     });
 
     shape.addEventListener('dblclick', e => {

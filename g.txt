@@ -1,0 +1,13 @@
+1.for ppt menu bar or document ->
+         document slides->
+                            a)Fix the PowerPoint slide functionality so users can write, add text, and edit existing content directly on the slides. Ensure that users can modify the document as needed, without removing or affecting any existing functionality.
+                            currently when user try to edit ppt slide it show a message "Please type inside the slide boundaries" ,if user already prsent in .pptx document .
+                            so fix this so that use edit or write inside the slide.,
+
+
+
+**Important for ai model **
+Not merge and  remove the functionality of any other documents ,if they are working properly 
+not change any other keyboard functionality for any document if not tell by me to change 
+not break ctrl+a (select all ) functionality of any document specially excel
+and don't restore any file for git only took references 

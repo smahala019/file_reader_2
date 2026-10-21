@@ -2442,6 +2442,8 @@
           <input type="file" id="pptBgFileInput" accept="image/*" style="display:none;">
         </div>
         <div class="ribbon-row">
+          <button class="fmt-btn with-text" id="pptAddTextBoxBtn" title="Insert Text Box on Slide"><i
+              class="fas fa-font" style="color:#0284c7;"></i> Text Box</button>
           <button class="fmt-btn with-text" id="pptInsertImageBtn" title="Insert Image onto Current Slide"><i
               class="fas fa-image" style="color:#0284c7;"></i> Slide Image</button>
           <input type="file" id="pptImageFileInput" accept="image/*" style="display:none;">
@@ -3732,8 +3734,7 @@
     <aside class="pptx-slide-sidebar" id="pptxSlideSidebar" aria-label="PowerPoint Slides Navigation"
       style="display:none;">
       <div class="pptx-sidebar-header">
-        <div class="pptx-sidebar-title"><i class="fas fa-file-powerpoint" style="color:#ea580c;"></i> Slides (<span
-            id="pptxSlideCount">0</span>)</div>
+        <div class="pptx-sidebar-title"><i class="fas fa-file-powerpoint" style="color:#ea580c;"></i><span>Slides (<span id="pptxSlideCount">0</span>)</span></div>
         <div class="pptx-sidebar-add-wrap" style="position:relative;">
           <button class="pptx-sidebar-add-btn" id="pptxSidebarAddBtn" title="Add New Slide"><i
               class="fas fa-plus"></i></button>
@@ -4917,6 +4918,10 @@
             <option value="double">Double Line</option>
             <option value="groove">Groove 3D</option>
             <option value="ridge">Ridge 3D</option>
+            <option value="inset">Inset 3D</option>
+            <option value="outset">Outset 3D</option>
+            <option value="wavy">Wavy Line</option>
+            <option value="glow">Glow Frame</option>
           </select>
         </div>
 
@@ -5298,12 +5303,12 @@
             class="fas fa-xmark"></i></button>
       </div>
       <div style="flex:1;overflow-y:auto;padding-right:4px;">
-        <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+        <table class="md-cheat-table" style="width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed;">
           <thead>
             <tr style="border-bottom:2px solid var(--border);text-align:left;">
-              <th style="padding:8px;color:var(--text-muted);width:30%;">Element</th>
-              <th style="padding:8px;color:var(--text-muted);width:45%;">Markdown Syntax</th>
-              <th style="padding:8px;color:var(--text-muted);width:25%;">Action</th>
+              <th style="padding:10px 8px;color:var(--text-muted);width:26%;">Element</th>
+              <th style="padding:10px 8px;color:var(--text-muted);width:54%;">Markdown Syntax</th>
+              <th style="padding:10px 8px;color:var(--text-muted);width:20%;text-align:right;">Action</th>
             </tr>
           </thead>
           <tbody id="mdCheatSheetTableBody">

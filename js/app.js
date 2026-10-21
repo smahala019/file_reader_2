@@ -1219,7 +1219,7 @@
       window.DocFlow.Editor?.updateCursorPos();
       const editor = $('#editor');
       if (editor) {
-        editor.contentEditable = isPptxDocument() ? 'false' : 'true';
+        editor.contentEditable = 'true';
       }
       updatePptSidebar();
     } else {
@@ -2133,8 +2133,21 @@
       const color = colorInput?.value || '#0284c7';
       const radius = radiusSelect?.value || '0px';
       if (previewBox) {
-        previewBox.style.border = `${width} ${lineType} ${color}`;
         previewBox.style.borderRadius = radius;
+        if (lineType === 'wavy') {
+          previewBox.style.border = `${width} double ${color}`;
+          previewBox.style.boxShadow = '';
+          previewBox.style.outline = `1.5px dashed ${color}`;
+          previewBox.style.outlineOffset = '2px';
+        } else if (lineType === 'glow') {
+          previewBox.style.border = `${width} solid ${color}`;
+          previewBox.style.boxShadow = `0 0 12px ${color}`;
+          previewBox.style.outline = '';
+        } else {
+          previewBox.style.border = `${width} ${lineType} ${color}`;
+          previewBox.style.boxShadow = '';
+          previewBox.style.outline = '';
+        }
       }
     }
 
@@ -2167,8 +2180,23 @@
         const color = colorInput?.value || '#0284c7';
         const radius = radiusSelect?.value || '0px';
 
-        page.classList.remove('page-border-box', 'page-border-shadow', 'page-border-double');
-        page.style.border = `${width} ${lineType} ${color}`;
+        page.classList.remove('page-border-box', 'page-border-shadow', 'page-border-double', 'page-border-wavy', 'page-border-glow');
+        if (lineType === 'wavy') {
+          page.style.border = `${width} double ${color}`;
+          page.style.boxShadow = '';
+          page.style.outline = `1.5px dashed ${color}`;
+          page.style.outlineOffset = '2px';
+          page.classList.add('page-border-wavy');
+        } else if (lineType === 'glow') {
+          page.style.border = `${width} solid ${color}`;
+          page.style.boxShadow = `0 0 14px ${color}`;
+          page.style.outline = '';
+          page.classList.add('page-border-glow');
+        } else {
+          page.style.border = `${width} ${lineType} ${color}`;
+          page.style.boxShadow = '';
+          page.style.outline = '';
+        }
         page.style.borderRadius = radius;
 
         window.DocFlow.Editor?.notifyChange();
@@ -2184,7 +2212,9 @@
         window.DocFlow.Editor?.saveSnapshot?.();
         page.style.border = '';
         page.style.borderRadius = '';
-        page.classList.remove('page-border-box', 'page-border-shadow', 'page-border-double');
+        page.style.boxShadow = '';
+        page.style.outline = '';
+        page.classList.remove('page-border-box', 'page-border-shadow', 'page-border-double', 'page-border-wavy', 'page-border-glow');
         window.DocFlow.Editor?.notifyChange();
         updateLayoutSetting('pageBorder', 'none');
         showToast('Page border removed', 'info');
@@ -3172,6 +3202,7 @@
             <button class="slide-plus-menu-item" data-action="layout-split"><i class="fas fa-columns" style="color:#f59e0b;"></i> Split 2 Columns</button>
             <button class="slide-plus-menu-item" data-action="layout-cards"><i class="fas fa-table-cells-large" style="color:#06b6d4;"></i> 3 Card Blocks</button>
             <div class="slide-plus-menu-sep"></div>
+            <button class="slide-plus-menu-item" data-action="textbox"><i class="fas fa-font" style="color:#0284c7;"></i> Text Box</button>
             <button class="slide-plus-menu-item" data-action="bg-image"><i class="fas fa-image" style="color:#10b981;"></i> Background Image</button>
             <div class="slide-plus-menu-sep"></div>
             <button class="slide-plus-menu-item slide-plus-next-btn" data-action="add-next-slide"><i class="fas fa-circle-plus" style="color:#ea580c;"></i> Add Next Slide</button>
@@ -3180,7 +3211,7 @@
         <div class="pptx-slide-card"${inheritedThemeAttr} contenteditable="true" style="aspect-ratio:16/9;width:100%;max-width:850px;height:520px;max-height:520px;overflow:hidden;${inheritedBg}${inheritedColor}${inheritedFont}border:1px solid var(--border);border-radius:12px;padding:36px;box-shadow:var(--shadow-md);outline:none;position:relative;box-sizing:border-box;word-break:break-word;overflow-wrap:break-word;display:flex;flex-direction:column;">
           ${bodyContent}
         </div>
-      </div><p><br></p>`;
+      </div>`;
   }
 
   function insertPptSlide(isNested = false, layout = 'blank') {
@@ -3223,7 +3254,7 @@
         <div class="slide-nested-card" contenteditable="true" style="border:1px solid var(--border);border-radius:8px;padding:18px;margin:12px 0;background:var(--bg-primary);box-shadow:var(--shadow-sm);">
           <h4 style="margin:0 0 8px;color:var(--text-primary);font-size:16px;">Nested Card Title</h4>
           <p style="margin:0;color:var(--text-secondary);font-size:14px;">Nested card content...</p>
-        </div><p><br></p>`);
+        </div>`);
       window.DocFlow.Editor?.notifyChange();
       showToast('Nested Slide Card added (Inside)', 'success');
     } else {
@@ -3244,8 +3275,20 @@
     const hint = slideCard.querySelector('.slide-placeholder-text');
     if (hint) {
       hint.remove();
-      if (!slideCard.innerHTML.trim() || slideCard.innerHTML === '<p></p>') {
-        slideCard.innerHTML = '<p><br></p>';
+      let targetBox = slideCard.querySelector('.slide-content-box, .pptx-slide-body, .slide-title-box, p[contenteditable="true"]');
+      if (!targetBox) {
+        targetBox = document.createElement('p');
+        targetBox.contentEditable = 'true';
+        targetBox.innerHTML = '<br>';
+        slideCard.appendChild(targetBox);
+      }
+      const sel = window.getSelection();
+      if (sel) {
+        const range = document.createRange();
+        range.selectNodeContents(targetBox);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
       }
       window.DocFlow.Editor?.notifyChange();
     }
@@ -3288,25 +3331,62 @@
       }
     });
 
-    // Instant placeholder removal on any user interaction with slide cards (Issue 4)
+    // Instant placeholder removal and editable text focus on any user interaction with slide cards (Issue 1.a)
     editor.addEventListener('pointerdown', e => {
       if (isPptxDocument()) {
         const slideCard = e.target.closest('.pptx-slide-card');
         if (slideCard) {
           clearSlidePlaceholder(slideCard);
+          // If clicked directly on the slide card background (not inside an existing editable text container or button)
+          if (e.target === slideCard || !e.target.closest('.slide-title-box, .slide-content-box, .pptx-slide-title, .pptx-slide-body, .slide-nested-card, .slide-freeform-rect, p, h1, h2, h3, h4, li, button, a')) {
+            let editableTarget = slideCard.querySelector('.slide-content-box, .pptx-slide-body, .slide-title-box, p[contenteditable="true"]');
+            if (!editableTarget) {
+              editableTarget = document.createElement('div');
+              editableTarget.className = 'slide-content-box pptx-slide-body';
+              editableTarget.contentEditable = 'true';
+              editableTarget.style.cssText = 'min-height:36px;font-size:18px;color:inherit;outline:none;padding:4px 8px;margin:8px 0;';
+              editableTarget.innerHTML = '<p><br></p>';
+              slideCard.appendChild(editableTarget);
+            }
+            editableTarget.focus();
+            const sel = window.getSelection();
+            if (sel) {
+              const range = document.createRange();
+              range.selectNodeContents(editableTarget);
+              range.collapse(false);
+              sel.removeAllRanges();
+              sel.addRange(range);
+            }
+          }
           return;
         }
         if (e.target.closest('.slide-quick-action-bar') || e.target.closest('.slide-speaker-notes') || e.target.closest('#pptxSlideSidebar')) {
           return;
         }
-        // Clicked outside slide in PPT deck: prevent caret placement outside slide cards
-        e.preventDefault();
+        // Clicked outside slide in PPT deck: smoothly position caret inside the active slide
         const slides = Array.from(editor.querySelectorAll('.pptx-slide-wrapper'));
         const curSlide = slides[currentActiveSlideIndex] || slides[0];
-        const focusTarget = curSlide?.querySelector('.slide-title-box, .slide-content-box, [contenteditable="true"]') || curSlide?.querySelector('.pptx-slide-card');
-        if (focusTarget) {
-          focusTarget.focus();
-          clearSlidePlaceholder(focusTarget.closest('.pptx-slide-card'));
+        const targetCard = curSlide?.querySelector('.pptx-slide-card') || curSlide;
+        if (targetCard) {
+          clearSlidePlaceholder(targetCard);
+          let targetBox = targetCard.querySelector('.slide-content-box, .pptx-slide-body, .slide-title-box, p[contenteditable="true"]');
+          if (!targetBox) {
+            targetBox = document.createElement('div');
+            targetBox.className = 'slide-content-box pptx-slide-body';
+            targetBox.contentEditable = 'true';
+            targetBox.style.cssText = 'min-height:36px;font-size:18px;color:inherit;outline:none;padding:4px 8px;margin:8px 0;';
+            targetBox.innerHTML = '<p><br></p>';
+            targetCard.appendChild(targetBox);
+          }
+          targetBox.focus();
+          const sel = window.getSelection();
+          if (sel) {
+            const range = document.createRange();
+            range.selectNodeContents(targetBox);
+            range.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
         }
       }
     });
@@ -3321,34 +3401,40 @@
     editor.addEventListener('beforeinput', e => {
       if (isPptxDocument()) {
         const slideCard = e.target.closest('.pptx-slide-card');
-        if (!slideCard) {
-          // Block typing outside slide boundaries in PPT presentation mode (Issue 1)
-          if (!e.target.closest('.slide-speaker-notes') && !e.target.closest('input, textarea')) {
-            e.preventDefault();
-            const slides = Array.from(editor.querySelectorAll('.pptx-slide-wrapper'));
-            const curSlide = slides[currentActiveSlideIndex] || slides[0];
-            const targetCard = curSlide?.querySelector('.pptx-slide-card') || curSlide;
-            const targetBox = targetCard?.querySelector('.slide-content-box, .pptx-slide-body, .slide-title-box, [contenteditable="true"]') || targetCard;
-            if (targetBox) {
-              targetBox.focus();
-              clearSlidePlaceholder(targetCard);
-              showToast('Please type inside the slide boundaries', 'warning');
+        if (!slideCard && !e.target.closest('.slide-speaker-notes') && !e.target.closest('input, textarea')) {
+          const slides = Array.from(editor.querySelectorAll('.pptx-slide-wrapper'));
+          const curSlide = slides[currentActiveSlideIndex] || slides[0];
+          const targetCard = curSlide?.querySelector('.pptx-slide-card') || curSlide;
+          if (targetCard) {
+            clearSlidePlaceholder(targetCard);
+            let targetBox = targetCard.querySelector('.slide-content-box, .pptx-slide-body, .slide-title-box, p[contenteditable="true"]');
+            if (!targetBox) {
+              targetBox = document.createElement('div');
+              targetBox.className = 'slide-content-box pptx-slide-body';
+              targetBox.contentEditable = 'true';
+              targetBox.style.cssText = 'min-height:36px;font-size:18px;color:inherit;outline:none;padding:4px 8px;margin:8px 0;';
+              targetBox.innerHTML = '<p><br></p>';
+              targetCard.appendChild(targetBox);
             }
-            return;
+            targetBox.focus();
+            const sel = window.getSelection();
+            if (sel) {
+              const range = document.createRange();
+              range.selectNodeContents(targetBox);
+              range.collapse(false);
+              sel.removeAllRanges();
+              sel.addRange(range);
+            }
           }
         }
 
         if (slideCard) {
           clearSlidePlaceholder(slideCard);
-          // Prevent typing if slide boundary is reached (Issue 1)
+          // Check slide boundary overflow and auto-fit without blocking user typing (Issue 1.a)
           if (e.inputType && (e.inputType.startsWith('insert') || e.inputType === 'formatIndent')) {
             if (slideCard.scrollHeight > (slideCard.clientHeight + 2)) {
               autoFitSlideText(slideCard, false);
-              if (slideCard.scrollHeight > (slideCard.clientHeight + 2)) {
-                e.preventDefault();
-                checkSlideOverflow(slideCard, true);
-                return;
-              }
+              checkSlideOverflow(slideCard, false);
             }
           }
         }
@@ -3390,18 +3476,21 @@
       const slideCard = e.target.closest('.pptx-slide-card');
       if (isPptxDocument()) {
         if (!slideCard && !e.target.closest('.slide-speaker-notes') && !e.target.closest('input, textarea')) {
-          if (e.key.length === 1 || e.key === 'Enter') {
-            e.preventDefault();
-            const slides = Array.from(editor.querySelectorAll('.pptx-slide-wrapper'));
-            const curSlide = slides[currentActiveSlideIndex] || slides[0];
-            const targetCard = curSlide?.querySelector('.pptx-slide-card') || curSlide;
-            const targetBox = targetCard?.querySelector('.slide-content-box, .pptx-slide-body, .slide-title-box, [contenteditable="true"]') || targetCard;
-            if (targetBox) {
-              targetBox.focus();
-              clearSlidePlaceholder(targetCard);
-              showToast('Please type inside the slide boundaries', 'warning');
+          const slides = Array.from(editor.querySelectorAll('.pptx-slide-wrapper'));
+          const curSlide = slides[currentActiveSlideIndex] || slides[0];
+          const targetCard = curSlide?.querySelector('.pptx-slide-card') || curSlide;
+          if (targetCard) {
+            clearSlidePlaceholder(targetCard);
+            let targetBox = targetCard.querySelector('.slide-content-box, .pptx-slide-body, .slide-title-box, p[contenteditable="true"]');
+            if (!targetBox) {
+              targetBox = document.createElement('div');
+              targetBox.className = 'slide-content-box pptx-slide-body';
+              targetBox.contentEditable = 'true';
+              targetBox.style.cssText = 'min-height:36px;font-size:18px;color:inherit;outline:none;padding:4px 8px;margin:8px 0;';
+              targetBox.innerHTML = '<p><br></p>';
+              targetCard.appendChild(targetBox);
             }
-            return;
+            targetBox.focus();
           }
         }
       }
@@ -3414,11 +3503,7 @@
         if (isPptxDocument() && slideCard) {
           if (slideCard.scrollHeight > (slideCard.clientHeight + 2)) {
             autoFitSlideText(slideCard, false);
-            if (slideCard.scrollHeight > (slideCard.clientHeight + 2)) {
-              e.preventDefault();
-              checkSlideOverflow(slideCard, true);
-              return;
-            }
+            checkSlideOverflow(slideCard, false);
           }
         }
 
@@ -3627,7 +3712,21 @@
     const action = item.dataset.action;
     const shape = item.dataset.shape;
 
-    if (action === 'rect') {
+    if (action === 'textbox' || action === 'text') {
+      const textHtml = `<div class="slide-content-box pptx-slide-body" contenteditable="true" style="font-size:18px;color:var(--text-primary);min-height:36px;margin:12px 0;padding:6px 10px;outline:none;border:1.5px dashed var(--accent, #0284c7);border-radius:6px;"><p>Click to edit text...</p></div>`;
+      slideCard.insertAdjacentHTML('beforeend', textHtml);
+      const newBox = slideCard.querySelector('.slide-content-box:last-of-type');
+      if (newBox) {
+        newBox.focus();
+        const range = document.createRange();
+        range.selectNodeContents(newBox);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+      window.DocFlow.Editor?.notifyChange();
+      showToast('Text box added to slide', 'success');
+    } else if (action === 'rect') {
       const rectHtml = `<div class="slide-freeform-rect" contenteditable="true" style="border:1.5px dashed var(--accent, #ea580c);border-radius:8px;padding:16px;margin:12px 0;background:var(--bg-tertiary);min-height:50px;">Rectangle Box (Click to edit text)</div><p><br></p>`;
       slideCard.insertAdjacentHTML('beforeend', rectHtml);
       window.DocFlow.Editor?.notifyChange();
@@ -4973,14 +5072,7 @@
     document.removeEventListener('keydown', handleSlideShowKey);
     document.addEventListener('keydown', handleSlideShowKey);
 
-    // Ensure slideshow control buttons are hooked up
-    const prevBtn = $('#slideshowPrevBtn');
-    if (prevBtn) prevBtn.onclick = () => showSlideShowIndex(currentSlideShowIdx - 1);
-    const nextBtn = $('#slideshowNextBtn');
-    if (nextBtn) nextBtn.onclick = () => showSlideShowIndex(currentSlideShowIdx + 1);
-    const exitBtn = $('#slideshowExitBtn');
-    if (exitBtn) exitBtn.onclick = exitSlideShow;
-
+    // Slideshow control buttons are initialized globally with debouncing (Issue 1.b)
     showToast(`Slide Show started from ${fromCurrent ? 'current slide (' + (startIdx + 1) + ')' : 'beginning (Slide 1)'}. Press Esc to exit.`, 'info');
   }
 
@@ -9762,10 +9854,21 @@
       window.DocFlow.Find?.openFindBar(true);
     });
 
-    // Presentation Slide Show Preview
+    // Presentation Slide Show Preview (Issue 1.b: advances exactly 1 slide per click)
+    let isAdvancingSlideShow = false;
     $('#viewPresentationPreviewBtn')?.addEventListener('click', startSlideShow);
-    $('#slideshowPrevBtn')?.addEventListener('click', () => showSlideShowIndex(currentSlideShowIdx - 1));
-    $('#slideshowNextBtn')?.addEventListener('click', () => showSlideShowIndex(currentSlideShowIdx + 1));
+    $('#slideshowPrevBtn')?.addEventListener('click', () => {
+      if (isAdvancingSlideShow) return;
+      isAdvancingSlideShow = true;
+      showSlideShowIndex(currentSlideShowIdx - 1);
+      setTimeout(() => { isAdvancingSlideShow = false; }, 220);
+    });
+    $('#slideshowNextBtn')?.addEventListener('click', () => {
+      if (isAdvancingSlideShow) return;
+      isAdvancingSlideShow = true;
+      showSlideShowIndex(currentSlideShowIdx + 1);
+      setTimeout(() => { isAdvancingSlideShow = false; }, 220);
+    });
     $('#slideshowExitBtn')?.addEventListener('click', exitSlideShow);
 
     // Reading Mode (Distraction-Free Reading - Document Editing Disabled: Item 4)
@@ -10583,10 +10686,10 @@
         ];
         tbody.innerHTML = cheats.map(c => `
           <tr style="border-bottom:1px solid var(--border);">
-            <td style="padding:7px 8px;font-weight:600;color:var(--text-primary);">${c.el}</td>
-            <td style="padding:7px 8px;font-family:var(--font-mono, monospace);font-size:11.5px;color:var(--accent);">${escHtml(c.syn)}</td>
-            <td style="padding:7px 8px;">
-              <button type="button" class="fmt-btn" style="padding:3px 8px;font-size:11px;" onclick="window.DocFlow?.insertSnippetIntoEditor?.(${JSON.stringify(c.snip)}); window.DocFlow?.UI?.closeModal?.('#mdCheatSheetModal'); window.DocFlow?.UI?.showToast?.('Inserted ${c.el} snippet', 'info');">Insert</button>
+            <td style="padding:10px 8px;font-weight:600;color:var(--text-primary);width:26%;word-break:break-word;">${c.el}</td>
+            <td style="padding:10px 8px;font-family:var(--font-mono, monospace);font-size:11.5px;color:var(--accent);width:54%;word-break:break-word;overflow-wrap:break-word;white-space:pre-wrap;">${escHtml(c.syn)}</td>
+            <td style="padding:10px 8px;width:20%;text-align:right;white-space:nowrap;">
+              <button type="button" class="md-cheat-insert-btn" onclick="window.DocFlow?.insertSnippetIntoEditor?.(${JSON.stringify(c.snip)}); window.DocFlow?.UI?.closeModal?.('#mdCheatSheetModal'); window.DocFlow?.UI?.showToast?.('Inserted ${c.el} snippet', 'info');">Insert</button>
             </td>
           </tr>
         `).join('');
@@ -10704,17 +10807,113 @@
 
     $('#mdPreviewBtn')?.addEventListener('click', () => openCodePreviewModal('md'));
 
-    // 12. Helper: HTML Beautifier & Formatter (Issue 4: Preserves script/style blocks)
-    function beautifyHtml(html) {
-      if (!html || typeof html !== 'string') return '';
-      // 1. Preserve <script>, <style>, and <pre> blocks so internal operators (<, >, <=, etc.) are never corrupted
+    // Helper: Structural preservation for HTML Formatting and Minification (Issue 4.b & Issue 2.a)
+    // Protects notes, images, shapes, charts, GIFs, tables, links, comments, lines, scripts, styles, pre, code
+    function preserveStructuralHtmlBlocks(html) {
+      if (!html || typeof html !== 'string') return { html: '', preserved: [], prefix: '___DF_PRESERVED_STRUCT_' };
       const preserved = [];
-      const placeholderPrefix = '___DF_PRESERVED_';
-      let processed = html.replace(/<(script|style|pre)\b[^>]*>([\s\S]*?)<\/\1>/gi, match => {
-        const key = `${placeholderPrefix}${preserved.length}___`;
+      const prefix = '___DF_PRESERVED_STRUCT_';
+
+      if (!html.includes('<')) return { html, preserved, prefix };
+
+      let processed = html;
+
+      // 1. Preserve HTML comments (retains comments without stripping)
+      processed = processed.replace(/<!--[\s\S]*?-->/g, match => {
+        const key = `${prefix}${preserved.length}___`;
         preserved.push(match);
         return key;
       });
+
+      // 2. Preserve scripts, styles, pre, code
+      processed = processed.replace(/<(script|style|pre|code)\b[^>]*>[\s\S]*?<\/\1>/gi, match => {
+        const key = `${prefix}${preserved.length}___`;
+        preserved.push(match);
+        return key;
+      });
+
+      // 3. Preserve interactive notes (with nested header, body, colors)
+      processed = processed.replace(/<div\b[^>]*class="[^"]*(doc-interactive-note|doc-custom-note|onenote-sticky-note|excel-floating-note|doc-note-card)[^"]*"[\s\S]*?<\/div>\s*<\/div>/gi, match => {
+        const key = `${prefix}${preserved.length}___`;
+        preserved.push(match);
+        return key;
+      });
+
+      // 4. Preserve shapes and SVG (retains exact viewBox, coordinates and text editor)
+      processed = processed.replace(/<div\b[^>]*class="[^"]*doc-shape-container[^"]*"[\s\S]*?<\/div>/gi, match => {
+        const key = `${prefix}${preserved.length}___`;
+        preserved.push(match);
+        return key;
+      });
+      processed = processed.replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, match => {
+        const key = `${prefix}${preserved.length}___`;
+        preserved.push(match);
+        return key;
+      });
+
+      // 5. Preserve charts (retains data-chart-data and rendered SVG/canvas)
+      processed = processed.replace(/<div\b[^>]*class="[^"]*(doc-chart-container|chart-render-wrapper)[^"]*"[\s\S]*?<\/div>/gi, match => {
+        const key = `${prefix}${preserved.length}___`;
+        preserved.push(match);
+        return key;
+      });
+
+      // 6. Preserve canvas
+      processed = processed.replace(/<canvas\b[^>]*>[\s\S]*?<\/canvas>/gi, match => {
+        const key = `${prefix}${preserved.length}___`;
+        preserved.push(match);
+        return key;
+      });
+
+      // 7. Preserve images & GIFs (retains full src, base64 data URIs, and styles)
+      processed = processed.replace(/<img\b[^>]*>/gi, match => {
+        const key = `${prefix}${preserved.length}___`;
+        preserved.push(match);
+        return key;
+      });
+
+      // 8. Preserve horizontal rules and custom lines
+      processed = processed.replace(/<hr\b[^>]*>/gi, match => {
+        const key = `${prefix}${preserved.length}___`;
+        preserved.push(match);
+        return key;
+      });
+      processed = processed.replace(/<div\b[^>]*class="[^"]*doc-custom-line[^"]*"[\s\S]*?<\/div>/gi, match => {
+        const key = `${prefix}${preserved.length}___`;
+        preserved.push(match);
+        return key;
+      });
+
+      // 9. Preserve links
+      processed = processed.replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, match => {
+        const key = `${prefix}${preserved.length}___`;
+        preserved.push(match);
+        return key;
+      });
+
+      // 10. Preserve comment highlights/spans
+      processed = processed.replace(/<(span|mark)\b[^>]*class="[^"]*(df-html-comment|df-comment-highlight)[^"]*"[\s\S]*?<\/\1>/gi, match => {
+        const key = `${prefix}${preserved.length}___`;
+        preserved.push(match);
+        return key;
+      });
+
+      return { html: processed, preserved, prefix };
+    }
+
+    function restoreStructuralHtmlBlocks(html, preserved, prefix = '___DF_PRESERVED_STRUCT_') {
+      if (!html) return '';
+      let restored = html;
+      preserved.forEach((block, idx) => {
+        restored = restored.replace(`${prefix}${idx}___`, () => block);
+      });
+      return restored;
+    }
+
+    // 12. Helper: HTML Beautifier & Formatter (Issue 4.b: Preserves all structural elements)
+    function beautifyHtml(html) {
+      if (!html || typeof html !== 'string') return '';
+      const { html: processed, preserved, prefix } = preserveStructuralHtmlBlocks(html);
 
       const voidTags = new Set([
         'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
@@ -10762,36 +10961,36 @@
         }
       }
 
-      let result = formatted.trim();
-      // Restore preserved blocks
-      preserved.forEach((block, idx) => {
-        result = result.replace(`${placeholderPrefix}${idx}___`, block);
-      });
-      return result;
+      const result = formatted.trim();
+      return restoreStructuralHtmlBlocks(result, preserved, prefix);
     }
 
-    // Helper: HTML Minifier (Issue 4: Preserves script/style blocks)
+    // Helper: HTML Minifier (Issue 4.b: Preserves all structural elements and comments)
     function minifyHtml(html) {
       if (!html) return '';
-      const preserved = [];
-      const placeholderPrefix = '___DF_PRESERVED_';
-      let processed = html.replace(/<(script|style|pre)\b[^>]*>([\s\S]*?)<\/\1>/gi, match => {
-        const key = `${placeholderPrefix}${preserved.length}___`;
-        preserved.push(match);
-        return key;
-      });
+      const { html: processed, preserved, prefix } = preserveStructuralHtmlBlocks(html);
 
       let minified = processed
-        .replace(/<!--(?!\[if)[\s\S]*?-->/g, '')
         .replace(/\s+/g, ' ')
         .replace(/>\s+</g, '><')
         .trim();
 
-      preserved.forEach((block, idx) => {
-        minified = minified.replace(`${placeholderPrefix}${idx}___`, block);
-      });
-      return minified;
+      return restoreStructuralHtmlBlocks(minified, preserved, prefix);
     }
+
+    // Hook up PPT Add Text Box Button (Issue 1.a)
+    $('#pptAddTextBoxBtn')?.addEventListener('click', () => {
+      const slides = Array.from(document.querySelectorAll('#editor .pptx-slide-wrapper'));
+      const curSlide = slides[currentActiveSlideIndex] || slides[0] || document.querySelector('#editor .pptx-slide-card');
+      if (curSlide) {
+        const card = curSlide.classList.contains('pptx-slide-card') ? curSlide : curSlide.querySelector('.pptx-slide-card');
+        if (card) {
+          handleSlideAction({ dataset: { action: 'textbox' } }, curSlide, card);
+        }
+      } else {
+        showToast('Open a presentation slide first', 'info');
+      }
+    });
 
     // 13. Dedicated HTML Ribbon Panel Controls (Issue 4)
     $('#htmlFormatMenuBtn')?.addEventListener('click', e => {
@@ -10895,36 +11094,100 @@
       });
     });
 
-    // Unique HTML Productivity Tools (No Duplicates Anywhere)
+    // Unique HTML Productivity Tools (Issue 4.a & 4.b: Works only for .html documents & preserves all structural elements)
     $('#htmlFormatBtn')?.addEventListener('click', () => {
       const ed = $('#editor');
+      const activeTab = window.DocFlow?.getActiveTab?.() || window.DocFlow?.Tabs?.getActive?.() || window.DocFlow?.UI?.Tabs?.get(window.DocFlow?.UI?.Tabs?.activeId);
+      const isHtml = (activeTab && (
+        (activeTab.name || '').toLowerCase().endsWith('.html') ||
+        (activeTab.name || '').toLowerCase().endsWith('.htm') ||
+        (activeTab.fileType || '').toLowerCase() === 'html'
+      )) || !!ed?.querySelector('pre.html-code-view');
+
+      if (!isHtml) {
+        showToast('Format HTML is only available for HTML (.html) documents', 'warning');
+        return;
+      }
+
       if (!ed) return;
+      window.DocFlow.Editor?.saveSnapshot?.();
       const pre = ed.querySelector('pre.html-code-view');
-      const raw = pre ? pre.textContent : (ed.innerText || ed.textContent || '');
-      if (raw.trim()) {
-        window.DocFlow.Editor?.saveSnapshot?.();
-        const formatted = beautifyHtml(raw);
-        if (pre) pre.textContent = formatted;
-        else ed.textContent = formatted;
-        window.DocFlow.Editor?.notifyChange?.();
-        window.DocFlow.Editor?.saveSnapshot?.();
-        showToast('HTML formatted with clean tag indentation', 'success');
+
+      if (pre) {
+        const raw = pre.textContent || '';
+        if (raw.trim()) {
+          pre.textContent = beautifyHtml(raw);
+          window.DocFlow.Editor?.notifyChange?.();
+          window.DocFlow.Editor?.saveSnapshot?.();
+          showToast('HTML formatted with clean tag indentation', 'success');
+        }
+      } else {
+        const raw = ed.innerHTML || '';
+        if (raw.trim()) {
+          ed.innerHTML = beautifyHtml(raw);
+          window.DocFlow.ImageManager?.refreshElementListeners?.();
+          window.DocFlow.ImageManager?.initImageManager?.();
+          ed.querySelectorAll('.doc-chart-container').forEach(c => {
+            window.DocFlow.ImageManager?.attachShapeListeners?.(c);
+          });
+          ed.querySelectorAll('.doc-shape-container').forEach(s => {
+            window.DocFlow.ImageManager?.attachShapeListeners?.(s);
+          });
+          ed.querySelectorAll('.doc-interactive-note, .doc-custom-note, .onenote-sticky-note, .excel-floating-note, .doc-note-card, hr, .doc-custom-line').forEach(n => {
+            window.DocFlow.ImageManager?.attachLineListeners?.(n);
+          });
+          window.DocFlow.Editor?.notifyChange?.();
+          window.DocFlow.Editor?.saveSnapshot?.();
+          showToast('HTML formatted with clean tag indentation', 'success');
+        }
       }
     });
 
     $('#htmlMinifyBtn')?.addEventListener('click', () => {
       const ed = $('#editor');
+      const activeTab = window.DocFlow?.getActiveTab?.() || window.DocFlow?.Tabs?.getActive?.() || window.DocFlow?.UI?.Tabs?.get(window.DocFlow?.UI?.Tabs?.activeId);
+      const isHtml = (activeTab && (
+        (activeTab.name || '').toLowerCase().endsWith('.html') ||
+        (activeTab.name || '').toLowerCase().endsWith('.htm') ||
+        (activeTab.fileType || '').toLowerCase() === 'html'
+      )) || !!ed?.querySelector('pre.html-code-view');
+
+      if (!isHtml) {
+        showToast('Minify HTML is only available for HTML (.html) documents', 'warning');
+        return;
+      }
+
       if (!ed) return;
+      window.DocFlow.Editor?.saveSnapshot?.();
       const pre = ed.querySelector('pre.html-code-view');
-      const raw = pre ? pre.textContent : (ed.innerText || ed.textContent || '');
-      if (raw.trim()) {
-        window.DocFlow.Editor?.saveSnapshot?.();
-        const minified = minifyHtml(raw);
-        if (pre) pre.textContent = minified;
-        else ed.textContent = minified;
-        window.DocFlow.Editor?.notifyChange?.();
-        window.DocFlow.Editor?.saveSnapshot?.();
-        showToast('HTML code minified safely', 'success');
+
+      if (pre) {
+        const raw = pre.textContent || '';
+        if (raw.trim()) {
+          pre.textContent = minifyHtml(raw);
+          window.DocFlow.Editor?.notifyChange?.();
+          window.DocFlow.Editor?.saveSnapshot?.();
+          showToast('HTML code minified safely', 'success');
+        }
+      } else {
+        const raw = ed.innerHTML || '';
+        if (raw.trim()) {
+          ed.innerHTML = minifyHtml(raw);
+          window.DocFlow.ImageManager?.refreshElementListeners?.();
+          window.DocFlow.ImageManager?.initImageManager?.();
+          ed.querySelectorAll('.doc-chart-container').forEach(c => {
+            window.DocFlow.ImageManager?.attachShapeListeners?.(c);
+          });
+          ed.querySelectorAll('.doc-shape-container').forEach(s => {
+            window.DocFlow.ImageManager?.attachShapeListeners?.(s);
+          });
+          ed.querySelectorAll('.doc-interactive-note, .doc-custom-note, .onenote-sticky-note, .excel-floating-note, .doc-note-card, hr, .doc-custom-line').forEach(n => {
+            window.DocFlow.ImageManager?.attachLineListeners?.(n);
+          });
+          window.DocFlow.Editor?.notifyChange?.();
+          window.DocFlow.Editor?.saveSnapshot?.();
+          showToast('HTML code minified safely', 'success');
+        }
       }
     });
 

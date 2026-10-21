@@ -871,7 +871,7 @@
         `;
       }
 
-      html += '</div><p><br></p>';
+      html += '</div>';
       return html;
     } catch (err) {
       console.error('PPTX parse error:', err);
@@ -901,6 +901,7 @@
             </button>
             <div class="slide-plus-menu" role="menu">
               <div class="slide-plus-menu-title">Insert Into Slide</div>
+              <button class="slide-plus-menu-item" data-action="textbox"><i class="fas fa-font" style="color:#0284c7;"></i> Text Box</button>
               <button class="slide-plus-menu-item" data-action="rect"><i class="fas fa-vector-square" style="color:#0284c7;"></i> Rectangle Box</button>
               <button class="slide-plus-menu-item" data-action="nested-rect"><i class="fas fa-layer-group" style="color:#8b5cf6;"></i> Nested Card</button>
               <button class="slide-plus-menu-item" data-action="bullets"><i class="fas fa-list-ul" style="color:#10b981;"></i> Bullet Points</button>
