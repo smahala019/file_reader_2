@@ -2863,16 +2863,35 @@
   }
 
   // Office & Embed Helpers (PPT Outside/Nested Slides, Charts, Presentation Slideshow, Excel Sheet Protection)
-  function isPptxDocument() {
-    const activeTab = window.DocFlow?.UI?.Tabs?.get(window.DocFlow?.UI?.Tabs?.activeId);
-    if (activeTab) {
-      const name = (activeTab.name || '').toLowerCase();
-      const type = (activeTab.fileType || '').toLowerCase();
-      if (name.endsWith('.pptx') || name.endsWith('.ppt') || type === 'pptx' || type === 'ppt' || type === 'powerpoint') {
-        return true;
-      }
+  function isPptxDocument(customTab = null) {
+    const activeTab = customTab || window.DocFlow?.UI?.Tabs?.get(window.DocFlow?.UI?.Tabs?.activeId);
+    if (!activeTab) return false;
+
+    const name = (activeTab.name || '').toLowerCase();
+    const fileType = (activeTab.fileType || '').toLowerCase();
+    const type = (activeTab.type || '').toLowerCase();
+
+    // Explicitly reject all other non-PPT document types to prevent converting other documents to PPT
+    if (
+      name.endsWith('.docx') || name.endsWith('.doc') || fileType === 'docx' || fileType === 'doc' || type === 'docx' || type === 'doc' ||
+      name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv') || fileType === 'xlsx' || fileType === 'xls' || fileType === 'csv' || fileType === 'excel' ||
+      name.endsWith('.pdf') || fileType === 'pdf' || type === 'pdf' ||
+      name.endsWith('.txt') || fileType === 'txt' ||
+      name.endsWith('.html') || name.endsWith('.htm') || fileType === 'html' ||
+      name.endsWith('.md') || name.endsWith('.markdown') || fileType === 'md'
+    ) {
+      return false;
     }
-    return document.body.classList.contains('slide-deck-mode') || !!document.querySelector('#editor .pptx-slide-card, #editor .pptx-slide-wrapper');
+
+    if (name.endsWith('.pptx') || name.endsWith('.ppt') || fileType === 'pptx' || fileType === 'ppt' || type === 'pptx' || type === 'ppt' || type === 'powerpoint') {
+      return true;
+    }
+
+    if (activeTab.content && (activeTab.content.includes('pptx-slide-card') || activeTab.content.includes('pptx-slide-wrapper'))) {
+      return true;
+    }
+
+    return false;
   }
 
   // PowerPoint Slide Deck Management & Sidebar (Issue 1 & 5)
@@ -3692,19 +3711,24 @@
       }
     });
 
-    // Keyboard Arrow navigation between PPT slides (Issue 5)
+    // Slide Navigation: User navigates slides by clicking on the slide or thumbnail sidebar.
+    // Arrow keys (ArrowUp, ArrowDown, ArrowLeft, ArrowRight) are strictly preserved for text cursor movement in slides.
     document.addEventListener('keydown', e => {
       if (isPptxDocument()) {
+        const editor = $('#editor');
         const activeEl = document.activeElement;
-        const isEditingText = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || (activeEl.isContentEditable && activeEl.closest('.slide-freeform-rect, .slide-nested-card, .slide-title-box, .slide-content-box, p, h1, h2, h3')));
-        if (!isEditingText) {
-          if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 'PageDown') {
+        const isInsideEditor = editor && (editor === activeEl || editor.contains(activeEl));
+        const isInput = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+
+        // Only handle PageDown / PageUp when focus is completely outside the editor/inputs
+        if (!isInsideEditor && !isInput) {
+          if (e.key === 'PageDown') {
             e.preventDefault();
             const slides = document.querySelectorAll('#editor .pptx-slide-wrapper');
             if (currentActiveSlideIndex < slides.length - 1) {
               selectPptSlide(currentActiveSlideIndex + 1);
             }
-          } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'PageUp') {
+          } else if (e.key === 'PageUp') {
             e.preventDefault();
             if (currentActiveSlideIndex > 0) {
               selectPptSlide(currentActiveSlideIndex - 1);
@@ -12542,6 +12566,7 @@
   window.DocFlow.togglePageOrientation = togglePageOrientation;
   window.DocFlow.togglePageBorders = togglePageBorders;
   window.DocFlow.setPrintArea = setPrintArea;
+  window.DocFlow.isPptxDocument = isPptxDocument;
   window.DocFlow.getCurrentActiveSlideIndex = () => currentActiveSlideIndex;
   window.DocFlow.updatePptSidebar = updatePptSidebar;
   window.DocFlow.selectPptSlide = selectPptSlide;

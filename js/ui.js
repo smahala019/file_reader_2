@@ -314,8 +314,24 @@
     activateTab(tab) {
       if (!tab) return;
       if (tab.type === 'edit') {
-        const editor = $('#editor');
-        const editorWrap = $('#editorWrap');
+        // Self-heal docx/xlsx if previously corrupted by PPT slide conversion bug
+        const isDocx = tab.name && (tab.name.toLowerCase().endsWith('.docx') || tab.name.toLowerCase().endsWith('.doc'));
+        if (isDocx && tab.content && tab.content.includes('pptx-slide-card')) {
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = tab.content;
+          const slideTitle = tempDiv.querySelector('.pptx-slide-title, h2')?.textContent?.trim() || '';
+          const slideBody = tempDiv.querySelector('.pptx-slide-body, p')?.textContent?.trim() || '';
+          if (slideTitle.includes('Presentation') || slideTitle.includes('Slide') || (!slideTitle && !slideBody)) {
+            tab.content = '<p><br></p>';
+          } else {
+            tab.content = `<p><strong>${escHtml(slideTitle)}</strong></p><p>${escHtml(slideBody)}</p>`;
+          }
+        }
+        const isExcelDoc = tab.name && (tab.name.toLowerCase().endsWith('.xlsx') || tab.name.toLowerCase().endsWith('.xls'));
+        if (isExcelDoc && tab.content && tab.content.includes('pptx-slide-card')) {
+          tab.content = window.DocFlow?.FileIO?.createBlankExcelGrid?.(50, 50) || '<p>Spreadsheet Document</p>';
+        }
+
         if (editor) editor.innerHTML = tab.content;
         if (editorWrap) editorWrap.scrollTop = tab.scroll || 0;
         window.DocFlow?.Editor?.resetHistoryForTab?.(tab.content);
@@ -344,15 +360,27 @@
           }
 
           // Auto-adjust editor canvas for PPT deck mode (Issue 7: Only slide shows, no white paper sheet below)
-          const isPptx = (tab.name && (tab.name.endsWith('.pptx') || tab.name.endsWith('.ppt'))) ||
-            tab.fileType === 'PPTX' || tab.fileType === 'PPT' || (tab.content && tab.content.includes('pptx-slide-card'));
+          const isExplicitNonPpt = tab.name && (
+            tab.name.toLowerCase().endsWith('.docx') || tab.name.toLowerCase().endsWith('.doc') ||
+            tab.name.toLowerCase().endsWith('.xlsx') || tab.name.toLowerCase().endsWith('.xls') || tab.name.toLowerCase().endsWith('.csv') ||
+            tab.name.toLowerCase().endsWith('.pdf') || tab.name.toLowerCase().endsWith('.txt') ||
+            tab.name.toLowerCase().endsWith('.html') || tab.name.toLowerCase().endsWith('.htm') ||
+            tab.name.toLowerCase().endsWith('.md') || tab.name.toLowerCase().endsWith('.markdown')
+          );
+          const isPptx = !isExplicitNonPpt && (
+            (tab.name && (tab.name.toLowerCase().endsWith('.pptx') || tab.name.toLowerCase().endsWith('.ppt'))) ||
+            tab.fileType === 'PPTX' || tab.fileType === 'PPT' ||
+            (tab.content && tab.content.includes('pptx-slide-card'))
+          );
           if (isPptx) {
             editor.classList.add('is-pptx-deck');
+            document.body.classList.add('slide-deck-mode');
             const sb = $('#pptxSlideSidebar');
             if (sb) sb.style.display = 'flex';
             setTimeout(() => window.DocFlow?.updatePptSidebar?.(), 60);
           } else {
             editor.classList.remove('is-pptx-deck');
+            document.body.classList.remove('slide-deck-mode');
             const sb = $('#pptxSlideSidebar');
             if (sb) sb.style.display = 'none';
           }
@@ -390,6 +418,8 @@
             window.DocFlow?.switchRibbonTab?.('md');
           } else if (tab.name && (tab.name.toLowerCase().endsWith('.html') || tab.name.toLowerCase().endsWith('.htm'))) {
             window.DocFlow?.switchRibbonTab?.('html');
+          } else {
+            window.DocFlow?.switchRibbonTab?.('home');
           }
           window.DocFlow?.updateWordOnlyTools?.(tab);
           window.DocFlow?.applyPersistedLayoutSettings?.(tab);
@@ -516,6 +546,9 @@
 
       if (this.list.length === 0) {
         this.activeId = null;
+        document.body.classList.remove('slide-deck-mode');
+        const sb = $('#pptxSlideSidebar');
+        if (sb) sb.style.display = 'none';
         const edWrap = document.getElementById('editorWrap');
         const ed = document.getElementById('editor');
         if (edWrap) edWrap.classList.remove('is-excel-mode');

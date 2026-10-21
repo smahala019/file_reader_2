@@ -1,0 +1,11 @@
+1.after create a ppt ,word ,excel or any other file ,after creating it all editor of other document are change to ppt slide editor ,so fix this correctly so every extension document show correct editor not show every extension document ppt slide editor.
+
+
+2.)in slides if user want to move the cursor by the help of arrow button then it not work ,it directly change the slide ,so fix this by arrow button user can move text cursor and by click on slide user can access the slide.
+
+
+**Important for ai model **
+Not merge and  remove the functionality of any other documents ,if they are working properly 
+not change any other keyboard functionality for any document if not tell by me to change 
+not break ctrl+a (select all ) functionality of any document specially excel
+and don't restore any file for git only took references 
