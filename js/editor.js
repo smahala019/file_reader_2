@@ -3090,20 +3090,66 @@
         // 1. PowerPoint Presentation Slides (PPTX / PPT)
         const slideCard = e.target.closest('.pptx-slide-card');
         if (slideCard) {
-          const existingText = e.target.closest('.pptx-slide-title, .pptx-slide-body, .slide-content-box, p, h1, h2, h3, li');
-          if (existingText && existingText !== slideCard && existingText.textContent.trim().length > 0) {
+          // If double-clicking an editable element, card, rectangle, nested card, text box, paragraph, heading, etc.
+          const editableTarget = e.target.closest(
+            '.slide-nested-card, .slide-freeform-rect, .slide-title-box, .slide-content-box, .pptx-slide-title, .pptx-slide-body, p, h1, h2, h3, h4, h5, h6, li, blockquote'
+          );
+
+          if (editableTarget && editableTarget !== slideCard && !editableTarget.closest('.slide-quick-action-bar')) {
+            editableTarget.contentEditable = 'true';
+            editableTarget.focus();
+
+            const sel = window.getSelection();
+            if (sel) {
+              let range = null;
+              if (document.caretRangeFromPoint) {
+                range = document.caretRangeFromPoint(e.clientX, e.clientY);
+              } else if (document.caretPositionFromPoint) {
+                const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+                if (pos) {
+                  range = document.createRange();
+                  range.setStart(pos.offsetNode, pos.offset);
+                  range.collapse(true);
+                }
+              }
+              if (!range) {
+                range = document.createRange();
+                range.selectNodeContents(editableTarget);
+                range.collapse(false);
+              }
+              sel.removeAllRanges();
+              sel.addRange(range);
+            }
+            notifyChange();
+            return;
+          }
+
+          // Double clicked on blank slide card background
+          const existingBox = slideCard.querySelector('.slide-content-box, .pptx-slide-body, .slide-title-box, p[contenteditable="true"]');
+          if (existingBox) {
+            existingBox.contentEditable = 'true';
+            existingBox.focus();
+            const sel = window.getSelection();
+            if (sel) {
+              const range = document.createRange();
+              range.selectNodeContents(existingBox);
+              range.collapse(false);
+              sel.removeAllRanges();
+              sel.addRange(range);
+            }
+            notifyChange();
             return;
           }
 
           const sRect = slideCard.getBoundingClientRect();
-          const clickX = Math.max(24, Math.min(sRect.width - 180, Math.round(e.clientX - sRect.left)));
-          const clickY = Math.max(24, Math.min(sRect.height - 40, Math.round(e.clientY - sRect.top)));
+          const clickX = Math.max(24, Math.min(sRect.width - 200, Math.round(e.clientX - sRect.left)));
+          const clickY = Math.max(24, Math.min(sRect.height - 50, Math.round(e.clientY - sRect.top)));
 
           saveSnapshot(true);
           const newBox = document.createElement('div');
           newBox.className = 'slide-content-box pptx-slide-body';
           newBox.contentEditable = 'true';
-          newBox.style.cssText = `position:absolute;left:${clickX}px;top:${clickY}px;min-width:140px;min-height:28px;outline:none;font-size:16px;color:var(--text-primary);z-index:15;padding:2px 6px;box-sizing:border-box;`;
+          newBox.style.cssText = `position:absolute;left:${clickX}px;top:${clickY}px;min-width:160px;min-height:36px;outline:none;font-size:18px;color:var(--text-primary);z-index:15;padding:6px 10px;box-sizing:border-box;border:1.5px dashed var(--accent, #0284c7);border-radius:6px;`;
           newBox.innerHTML = '<p><br></p>';
           slideCard.appendChild(newBox);
 

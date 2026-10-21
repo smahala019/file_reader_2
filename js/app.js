@@ -2865,10 +2865,14 @@
   // Office & Embed Helpers (PPT Outside/Nested Slides, Charts, Presentation Slideshow, Excel Sheet Protection)
   function isPptxDocument() {
     const activeTab = window.DocFlow?.UI?.Tabs?.get(window.DocFlow?.UI?.Tabs?.activeId);
-    if (!activeTab) return false;
-    const name = (activeTab.name || '').toLowerCase();
-    const type = (activeTab.fileType || '').toLowerCase();
-    return name.endsWith('.pptx') || name.endsWith('.ppt') || type === 'pptx' || type === 'ppt';
+    if (activeTab) {
+      const name = (activeTab.name || '').toLowerCase();
+      const type = (activeTab.fileType || '').toLowerCase();
+      if (name.endsWith('.pptx') || name.endsWith('.ppt') || type === 'pptx' || type === 'ppt' || type === 'powerpoint') {
+        return true;
+      }
+    }
+    return document.body.classList.contains('slide-deck-mode') || !!document.querySelector('#editor .pptx-slide-card, #editor .pptx-slide-wrapper');
   }
 
   // PowerPoint Slide Deck Management & Sidebar (Issue 1 & 5)
@@ -3277,9 +3281,11 @@
       hint.remove();
       let targetBox = slideCard.querySelector('.slide-content-box, .pptx-slide-body, .slide-title-box, p[contenteditable="true"]');
       if (!targetBox) {
-        targetBox = document.createElement('p');
+        targetBox = document.createElement('div');
+        targetBox.className = 'slide-content-box pptx-slide-body';
         targetBox.contentEditable = 'true';
-        targetBox.innerHTML = '<br>';
+        targetBox.style.cssText = 'min-height:48px;font-size:18px;color:inherit;outline:none;padding:8px 12px;margin:8px 0;box-sizing:border-box;';
+        targetBox.innerHTML = '<p><br></p>';
         slideCard.appendChild(targetBox);
       }
       const sel = window.getSelection();
@@ -3337,6 +3343,13 @@
         const slideCard = e.target.closest('.pptx-slide-card');
         if (slideCard) {
           clearSlidePlaceholder(slideCard);
+
+          // If clicked inside an editable container or element, ensure contenteditable="true"
+          const editableBox = e.target.closest('.slide-nested-card, .slide-freeform-rect, .slide-content-box, .slide-title-box, .pptx-slide-title, .pptx-slide-body');
+          if (editableBox) {
+            editableBox.contentEditable = 'true';
+          }
+
           // If clicked directly on the slide card background (not inside an existing editable text container or button)
           if (e.target === slideCard || !e.target.closest('.slide-title-box, .slide-content-box, .pptx-slide-title, .pptx-slide-body, .slide-nested-card, .slide-freeform-rect, p, h1, h2, h3, h4, li, button, a')) {
             let editableTarget = slideCard.querySelector('.slide-content-box, .pptx-slide-body, .slide-title-box, p[contenteditable="true"]');
@@ -3344,7 +3357,7 @@
               editableTarget = document.createElement('div');
               editableTarget.className = 'slide-content-box pptx-slide-body';
               editableTarget.contentEditable = 'true';
-              editableTarget.style.cssText = 'min-height:36px;font-size:18px;color:inherit;outline:none;padding:4px 8px;margin:8px 0;';
+              editableTarget.style.cssText = 'min-height:48px;font-size:18px;color:inherit;outline:none;padding:8px 12px;margin:8px 0;box-sizing:border-box;';
               editableTarget.innerHTML = '<p><br></p>';
               slideCard.appendChild(editableTarget);
             }
@@ -3374,7 +3387,7 @@
             targetBox = document.createElement('div');
             targetBox.className = 'slide-content-box pptx-slide-body';
             targetBox.contentEditable = 'true';
-            targetBox.style.cssText = 'min-height:36px;font-size:18px;color:inherit;outline:none;padding:4px 8px;margin:8px 0;';
+            targetBox.style.cssText = 'min-height:48px;font-size:18px;color:inherit;outline:none;padding:8px 12px;margin:8px 0;box-sizing:border-box;';
             targetBox.innerHTML = '<p><br></p>';
             targetCard.appendChild(targetBox);
           }
@@ -3391,6 +3404,71 @@
       }
     });
 
+    // Double-click any element, card, rectangle, or text area on a slide to start editing directly
+    editor.addEventListener('dblclick', e => {
+      if (!isPptxDocument()) return;
+      const slideCard = e.target.closest('.pptx-slide-card');
+      if (!slideCard) return;
+
+      clearSlidePlaceholder(slideCard);
+
+      const editableTarget = e.target.closest(
+        '.slide-nested-card, .slide-freeform-rect, .slide-title-box, .slide-content-box, .pptx-slide-title, .pptx-slide-body, p, h1, h2, h3, h4, h5, h6, li, blockquote'
+      );
+
+      if (editableTarget && editableTarget !== slideCard && !editableTarget.closest('.slide-quick-action-bar')) {
+        editableTarget.contentEditable = 'true';
+        editableTarget.focus();
+
+        const sel = window.getSelection();
+        if (sel) {
+          let range = null;
+          if (document.caretRangeFromPoint) {
+            range = document.caretRangeFromPoint(e.clientX, e.clientY);
+          } else if (document.caretPositionFromPoint) {
+            const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+            if (pos) {
+              range = document.createRange();
+              range.setStart(pos.offsetNode, pos.offset);
+              range.collapse(true);
+            }
+          }
+          if (!range) {
+            range = document.createRange();
+            range.selectNodeContents(editableTarget);
+            range.collapse(false);
+          }
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        window.DocFlow.Editor?.notifyChange?.();
+      } else if (e.target === slideCard || !e.target.closest('.slide-quick-action-bar')) {
+        let targetBox = slideCard.querySelector('.slide-content-box, .pptx-slide-body, .slide-title-box, p[contenteditable="true"]');
+        if (!targetBox) {
+          const sRect = slideCard.getBoundingClientRect();
+          const clickX = Math.max(24, Math.min(sRect.width - 200, Math.round(e.clientX - sRect.left)));
+          const clickY = Math.max(24, Math.min(sRect.height - 50, Math.round(e.clientY - sRect.top)));
+
+          targetBox = document.createElement('div');
+          targetBox.className = 'slide-content-box pptx-slide-body';
+          targetBox.contentEditable = 'true';
+          targetBox.style.cssText = `position:absolute;left:${clickX}px;top:${clickY}px;min-width:160px;min-height:36px;font-size:18px;color:inherit;outline:none;padding:6px 10px;margin:0;z-index:15;box-sizing:border-box;border:1.5px dashed var(--accent, #0284c7);border-radius:6px;`;
+          targetBox.innerHTML = '<p><br></p>';
+          slideCard.appendChild(targetBox);
+        }
+        targetBox.focus();
+        const sel = window.getSelection();
+        if (sel) {
+          const range = document.createRange();
+          range.selectNodeContents(targetBox);
+          range.collapse(false);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        window.DocFlow.Editor?.notifyChange?.();
+      }
+    });
+
     editor.addEventListener('focusin', e => {
       const slideCard = e.target.closest('.pptx-slide-card');
       if (slideCard) {
@@ -3400,7 +3478,12 @@
 
     editor.addEventListener('beforeinput', e => {
       if (isPptxDocument()) {
-        const slideCard = e.target.closest('.pptx-slide-card');
+        let slideCard = e.target.closest('.pptx-slide-card');
+        if (!slideCard) {
+          const selNode = window.getSelection()?.anchorNode;
+          slideCard = (selNode?.nodeType === Node.TEXT_NODE ? selNode.parentElement : selNode)?.closest?.('.pptx-slide-card');
+        }
+
         if (!slideCard && !e.target.closest('.slide-speaker-notes') && !e.target.closest('input, textarea')) {
           const slides = Array.from(editor.querySelectorAll('.pptx-slide-wrapper'));
           const curSlide = slides[currentActiveSlideIndex] || slides[0];
@@ -3412,7 +3495,7 @@
               targetBox = document.createElement('div');
               targetBox.className = 'slide-content-box pptx-slide-body';
               targetBox.contentEditable = 'true';
-              targetBox.style.cssText = 'min-height:36px;font-size:18px;color:inherit;outline:none;padding:4px 8px;margin:8px 0;';
+              targetBox.style.cssText = 'min-height:48px;font-size:18px;color:inherit;outline:none;padding:8px 12px;margin:8px 0;';
               targetBox.innerHTML = '<p><br></p>';
               targetCard.appendChild(targetBox);
             }
@@ -3473,7 +3556,12 @@
     });
 
     editor.addEventListener('keydown', e => {
-      const slideCard = e.target.closest('.pptx-slide-card');
+      let slideCard = e.target.closest('.pptx-slide-card');
+      if (!slideCard) {
+        const selNode = window.getSelection()?.anchorNode;
+        slideCard = (selNode?.nodeType === Node.TEXT_NODE ? selNode.parentElement : selNode)?.closest?.('.pptx-slide-card');
+      }
+
       if (isPptxDocument()) {
         if (!slideCard && !e.target.closest('.slide-speaker-notes') && !e.target.closest('input, textarea')) {
           const slides = Array.from(editor.querySelectorAll('.pptx-slide-wrapper'));
@@ -3486,7 +3574,7 @@
               targetBox = document.createElement('div');
               targetBox.className = 'slide-content-box pptx-slide-body';
               targetBox.contentEditable = 'true';
-              targetBox.style.cssText = 'min-height:36px;font-size:18px;color:inherit;outline:none;padding:4px 8px;margin:8px 0;';
+              targetBox.style.cssText = 'min-height:48px;font-size:18px;color:inherit;outline:none;padding:8px 12px;margin:8px 0;';
               targetBox.innerHTML = '<p><br></p>';
               targetCard.appendChild(targetBox);
             }
@@ -3500,37 +3588,51 @@
       }
 
       if (e.key === 'Enter') {
-        if (isPptxDocument() && slideCard) {
-          if (slideCard.scrollHeight > (slideCard.clientHeight + 2)) {
-            autoFitSlideText(slideCard, false);
-            checkSlideOverflow(slideCard, false);
+        const isPpt = isPptxDocument();
+        const activeCard = slideCard || e.target.closest?.('.pptx-slide-card') || (window.getSelection()?.anchorNode?.parentElement?.closest('.pptx-slide-card'));
+
+        if (isPpt || activeCard) {
+          const sel = window.getSelection();
+          let node = sel && sel.rangeCount ? sel.getRangeAt(0).commonAncestorContainer : null;
+          if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+          const insideLi = e.target.closest?.('li') || node?.closest?.('li');
+
+          if (insideLi) {
+            setTimeout(() => {
+              if (activeCard && activeCard.scrollHeight > (activeCard.clientHeight + 2)) {
+                autoFitSlideText(activeCard, false);
+                checkSlideOverflow(activeCard, false);
+              }
+            }, 10);
+            return;
           }
-        }
 
-        const sel = window.getSelection();
-        let targetBox = e.target.closest ? e.target.closest('.slide-title-box, .slide-freeform-rect, .slide-nested-card, .slide-content-box, .pptx-slide-title, .pptx-slide-body') : null;
-        if (!targetBox && sel && sel.rangeCount) {
-          const node = sel.getRangeAt(0).commonAncestorContainer;
-          targetBox = (node.nodeType === Node.TEXT_NODE ? node.parentElement : node)?.closest?.(
-            '.slide-title-box, .slide-freeform-rect, .slide-nested-card, .slide-content-box, .pptx-slide-title, .pptx-slide-body'
-          );
-        }
-
-        if (targetBox) {
           e.preventDefault();
           e.stopPropagation();
 
-          if (sel && sel.rangeCount) {
+          let inserted = false;
+          try {
+            inserted = document.execCommand('insertLineBreak');
+          } catch (err) {
+            inserted = false;
+          }
+
+          if (!inserted && sel && sel.rangeCount) {
             const range = sel.getRangeAt(0);
             range.deleteContents();
             const br = document.createElement('br');
             range.insertNode(br);
 
-            // In contenteditable, if br is at the end, add placeholder so caret can sit on new line
-            if (!br.nextSibling) {
+            let next = br.nextSibling;
+            while (next && next.nodeType === Node.TEXT_NODE && next.textContent.length === 0) {
+              const emptyNode = next;
+              next = next.nextSibling;
+              emptyNode.remove();
+            }
+            if (!next) {
               const trailingBr = document.createElement('br');
               trailingBr.className = 'trailing-line-break';
-              br.parentNode.appendChild(trailingBr);
+              br.parentNode.insertBefore(trailingBr, br.nextSibling);
             }
 
             const newRange = document.createRange();
@@ -3538,9 +3640,14 @@
             newRange.collapse(true);
             sel.removeAllRanges();
             sel.addRange(newRange);
+          }
 
-            window.DocFlow.Editor?.notifyChange?.();
-            targetBox.dispatchEvent(new Event('input', { bubbles: true }));
+          window.DocFlow.Editor?.notifyChange?.();
+          if (activeCard) {
+            if (activeCard.scrollHeight > (activeCard.clientHeight + 2)) {
+              autoFitSlideText(activeCard, false);
+              checkSlideOverflow(activeCard, false);
+            }
           }
           return;
         }
@@ -3609,13 +3716,19 @@
 
     // Freeform drag for slide content boxes extending beyond slide boundaries (Issue 1)
     editor.addEventListener('mousedown', e => {
+      // Never interfere with double-clicks
+      if (e.detail >= 2) return;
+
       const box = e.target.closest('.slide-freeform-rect, .slide-nested-card');
       if (!box || !editor.contains(box)) return;
 
+      // If clicking inside editable text (paragraphs, headings, spans, links), do NOT drag - allow text editing & selection
+      const isText = e.target.closest('p, h1, h2, h3, h4, h5, h6, span, a, input, textarea');
+      if (isText && !e.altKey) return;
+
       const rect = box.getBoundingClientRect();
-      const isTopHandle = (e.clientY - rect.top) < 18;
-      const isBorder = (e.clientX - rect.left) < 12 || (rect.right - e.clientX) < 12 || (rect.bottom - e.clientY) < 12;
-      if (!isTopHandle && !isBorder && !e.altKey) return;
+      const isOuterBorder = (e.clientX - rect.left) <= 6 || (rect.right - e.clientX) <= 6 || (e.clientY - rect.top) <= 6 || (rect.bottom - e.clientY) <= 6;
+      if (!isOuterBorder && !e.altKey) return;
 
       e.preventDefault();
       e.stopPropagation();
@@ -3729,11 +3842,29 @@
     } else if (action === 'rect') {
       const rectHtml = `<div class="slide-freeform-rect" contenteditable="true" style="border:1.5px dashed var(--accent, #ea580c);border-radius:8px;padding:16px;margin:12px 0;background:var(--bg-tertiary);min-height:50px;">Rectangle Box (Click to edit text)</div><p><br></p>`;
       slideCard.insertAdjacentHTML('beforeend', rectHtml);
+      const newRect = slideCard.querySelector('.slide-freeform-rect:last-of-type');
+      if (newRect) {
+        newRect.focus();
+        const range = document.createRange();
+        range.selectNodeContents(newRect);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
       window.DocFlow.Editor?.notifyChange();
       showToast('Rectangle added to slide', 'success');
     } else if (action === 'nested-rect') {
       const nestedHtml = `<div class="slide-nested-card" contenteditable="true" style="border:1px solid var(--border);border-radius:8px;padding:18px;margin:12px 0;background:var(--bg-primary);box-shadow:var(--shadow-sm);"><h4 style="margin:0 0 8px;color:var(--text-primary);font-size:16px;">Nested Card Title</h4><p style="margin:0;color:var(--text-secondary);font-size:14px;">Nested card content...</p></div><p><br></p>`;
       slideCard.insertAdjacentHTML('beforeend', nestedHtml);
+      const newCard = slideCard.querySelector('.slide-nested-card:last-of-type');
+      if (newCard) {
+        newCard.focus();
+        const range = document.createRange();
+        range.selectNodeContents(newCard);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
       window.DocFlow.Editor?.notifyChange();
       showToast('Nested Card added to slide', 'success');
     } else if (action === 'bullets') {

@@ -1273,21 +1273,25 @@ li input[type="checkbox"]:checked ~ span {
   box-sizing: border-box !important;
 }
 
-/* Ensure all editable content inside PPT slides shows proper text cursor (Bug 6) */
+/* Ensure all editable content inside PPT slides shows proper text cursor and allows text selection (Bug 6 & h.txt Issue 1) */
 .pptx-slide-card [contenteditable="true"],
 .pptx-slide-card .slide-title-box,
 .pptx-slide-card .slide-content-box,
 .pptx-slide-card .pptx-slide-title,
 .pptx-slide-card .pptx-slide-body,
 .pptx-slide-card .slide-nested-card,
+.pptx-slide-card .slide-freeform-rect,
 .pptx-slide-card p,
 .pptx-slide-card h1,
 .pptx-slide-card h2,
 .pptx-slide-card h3,
 .pptx-slide-card h4,
+.pptx-slide-card h5,
 .pptx-slide-card li,
 .pptx-slide-card span:not(.slide-badge) {
   cursor: text !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
 }
 
 .slide-freeform-rect:hover,
@@ -1295,6 +1299,18 @@ li input[type="checkbox"]:checked ~ span {
 .slide-title-box:hover,
 .slide-content-box:hover {
   outline: 1.5px dashed var(--accent);
+  outline-offset: 2px;
+}
+
+.slide-freeform-rect:focus,
+.slide-freeform-rect:focus-within,
+.slide-nested-card:focus,
+.slide-nested-card:focus-within,
+.slide-title-box:focus,
+.slide-title-box:focus-within,
+.slide-content-box:focus,
+.slide-content-box:focus-within {
+  outline: 1.5px solid var(--accent, #0284c7) !important;
   outline-offset: 2px;
 }
 
