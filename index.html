@@ -3337,7 +3337,7 @@
             title="Compile Markdown & Copy Formatted HTML to Clipboard"><i class="fas fa-copy"
               style="color:#10b981;"></i> Copy HTML</button>
           <button class="fmt-btn with-text" id="mdHtmlToMdBtn" title="Convert HTML Markup to Clean Markdown Syntax"><i
-              class="fas fa-right-left" style="color:#f59e0b;"></i> HTML to MD</button>
+              class="fas fa-right-left" style="color:#f59e0b;"></i> MD to HTML</button>
           <button class="fmt-btn with-text" id="mdTocGenBtn" title="Auto-Generate Table of Contents from Headings"><i
               class="fas fa-list-check" style="color:#ea580c;"></i> Auto TOC</button>
           <button class="fmt-btn with-text" id="mdStripToTextBtn" title="Strip Markdown Syntax to Clean Plain Text"><i
@@ -5318,6 +5318,54 @@
       </div>
       <div class="modal-actions" style="margin-top:14px;display:flex;justify-content:flex-end;flex-shrink:0;">
         <button class="modal-btn" id="mdCheatSheetDoneBtn">Close Reference</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Markdown Document Statistics Modal (Issue 4) -->
+  <div class="modal-overlay" id="mdStatsModal" role="dialog" aria-modal="true" aria-label="Markdown Document Statistics">
+    <div class="modal" style="width:620px;max-width:94vw;max-height:86vh;display:flex;flex-direction:column;padding:22px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-shrink:0;">
+        <h3 style="margin:0;font-size:16px;display:flex;align-items:center;gap:8px;">
+          <i class="fab fa-markdown" style="color:var(--accent);"></i> Markdown Document Statistics
+        </h3>
+        <button class="modal-close-icon" id="mdStatsCloseBtn" style="background:transparent;border:none;cursor:pointer;font-size:18px;color:var(--text-muted);">
+          <i class="fas fa-xmark"></i>
+        </button>
+      </div>
+      <div id="mdStatsContainer" style="flex:1;overflow-y:auto;padding-right:4px;">
+        <!-- Dynamically rendered statistics cards -->
+      </div>
+      <div class="modal-actions" style="margin-top:16px;display:flex;justify-content:flex-end;flex-shrink:0;">
+        <button class="modal-btn" id="mdStatsDoneBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HTML DOM Structure Inspector Modal (Issue 5) -->
+  <div class="modal-overlay" id="htmlDomInspectorModal" role="dialog" aria-modal="true" aria-label="HTML DOM Inspector">
+    <div class="modal" style="width:720px;max-width:95vw;max-height:88vh;display:flex;flex-direction:column;padding:22px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;">
+        <h3 style="margin:0;font-size:16px;display:flex;align-items:center;gap:8px;">
+          <i class="fas fa-sitemap" style="color:#06b6d4;"></i> HTML DOM Inspector & Hierarchy
+        </h3>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button class="fmt-btn" id="htmlDomInspectorRefreshBtn" title="Refresh DOM Tree" style="padding:4px 10px;font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <i class="fas fa-rotate"></i> Refresh
+          </button>
+          <button class="modal-close-icon" id="htmlDomInspectorCloseBtn" style="background:transparent;border:none;cursor:pointer;font-size:18px;color:var(--text-muted);">
+            <i class="fas fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+      <div id="htmlDomInspectorOverview" style="margin-bottom:12px;flex-shrink:0;">
+        <!-- Metrics badges -->
+      </div>
+      <div id="htmlDomInspectorTree" style="flex:1;overflow-y:auto;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:var(--font-mono, monospace);font-size:12px;line-height:1.6;">
+        <!-- DOM hierarchy tree -->
+      </div>
+      <div class="modal-actions" style="margin-top:14px;display:flex;justify-content:flex-end;flex-shrink:0;">
+        <button class="modal-btn" id="htmlDomInspectorDoneBtn">Close</button>
       </div>
     </div>
   </div>

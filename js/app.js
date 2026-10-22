@@ -293,7 +293,7 @@
         const db = await this.getDb();
         const tx = db.transaction(this.STORE_NAME, 'readwrite');
         tx.objectStore(this.STORE_NAME).delete(name.toLowerCase());
-      } catch (e) {}
+      } catch (e) { }
     }
   };
 
@@ -372,7 +372,7 @@
         const db = await this.getDb();
         const tx = db.transaction(this.STORE_NAME, 'readwrite');
         tx.objectStore(this.STORE_NAME).delete(docKey.toLowerCase());
-      } catch (e) {}
+      } catch (e) { }
     }
   };
 
@@ -427,7 +427,7 @@
         const cache = JSON.parse(localStorage.getItem('docflow_locked_docs') || '{}');
         cache[normName] = { isLocked: true, password: pin };
         localStorage.setItem('docflow_locked_docs', JSON.stringify(cache));
-      } catch (_) {}
+      } catch (_) { }
     },
 
     async unlock(name) {
@@ -437,12 +437,12 @@
         const db = await this.getDb();
         const tx = db.transaction(this.STORE_NAME, 'readwrite');
         tx.objectStore(this.STORE_NAME).delete(normName);
-      } catch (e) {}
+      } catch (e) { }
       try {
         const cache = JSON.parse(localStorage.getItem('docflow_locked_docs') || '{}');
         delete cache[normName];
         localStorage.setItem('docflow_locked_docs', JSON.stringify(cache));
-      } catch (_) {}
+      } catch (_) { }
     },
 
     async get(name) {
@@ -662,7 +662,7 @@
               applyLayoutSettings(glob);
             }
           }
-        }).catch(() => {});
+        }).catch(() => { });
       }
     }).catch(err => console.warn('LayoutStore load error:', err));
   }
@@ -733,6 +733,7 @@
         mode: doc.mode || (isPdf ? 'view' : 'edit'),
         content: doc.content || '<p><br></p>',
         size: calcSize,
+        createdAt: doc.createdAt || doc.createdDate || Date.now(),
         timestamp: Date.now()
       };
 
@@ -885,6 +886,8 @@
         const sizeVal = item.size || (item.content ? new Blob([item.content]).size : 1024);
         const sizeStr = formatFileSize(sizeVal);
         const timeStr = formatRelativeTime(item.timestamp);
+        const createdTs = item.createdAt || item.timestamp || Date.now();
+        const createdStr = formatDateTime(createdTs);
 
         // Delete button placed in front of each item (front/left)
         card.innerHTML = `
@@ -903,7 +906,8 @@
             <div class="recent-item-meta">
               <span>${escHtml(item.type || ext.toUpperCase() || 'DOC')}</span> &bull; 
               <span class="recent-item-size" style="font-weight:600;color:var(--accent);">${sizeStr}</span> &bull; 
-              <span>${timeStr}</span>
+              <span title="Last opened / active">${timeStr}</span> &bull; 
+              <span class="recent-item-created" title="Creation Date & Time" style="color:var(--text-secondary);"><i class="fas fa-calendar-day" style="font-size:9.5px;color:var(--accent);margin-right:2px;"></i>Created: ${createdStr}</span>
             </div>
           </div>
         `;
@@ -997,7 +1001,7 @@
             </div>
           </div>
         `;
-// { not to add inside this /* <button type="button" class="recent-tab-del-btn" title="Remove from recent files" aria-label="Remove ${escHtml(item.name)}"><i class="fas fa-xmark"></i></button> */}
+        // { not to add inside this /* <button type="button" class="recent-tab-del-btn" title="Remove from recent files" aria-label="Remove ${escHtml(item.name)}"><i class="fas fa-xmark"></i></button> */}
         const delBtn = card.querySelector('.recent-tab-del-btn');
         if (delBtn) {
           delBtn.addEventListener('click', (e) => {
@@ -1028,7 +1032,7 @@
 
         listEl.appendChild(card);
       });
-    }    
+    }
   };
 
   function formatFileSize(bytes) {
@@ -1054,6 +1058,20 @@
     const days = Math.floor(hrs / 24);
     if (days < 7) return `${days}d ago`;
     return new Date(ts).toLocaleDateString();
+  }
+
+  function formatDateTime(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    }) + ' ' + d.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   }
 
   // ==========================================================================
@@ -1551,6 +1569,10 @@
         $('#saveDropdown')?.classList.remove('show');
         window.DocFlow.Find?.closeOutline();
         window.DocFlow.Find?.closeFindBar();
+        window.DocFlow.UI?.closeAllPopovers?.();
+        if (window.DocFlow?.Editor?.focusEditor && window.DocFlow?.currentMode === 'edit') {
+          window.DocFlow.Editor.focusEditor();
+        }
         return;
       }
 
@@ -3552,7 +3574,7 @@
           const mark = (node.nodeType === Node.TEXT_NODE ? node.parentElement : node)?.closest?.('.df-comment-highlight');
           if (mark) {
             const isAtEnd = (node.nodeType === Node.TEXT_NODE && range.startOffset >= node.textContent.length && !node.nextSibling) ||
-                            (node === mark && range.startOffset >= mark.childNodes.length);
+              (node === mark && range.startOffset >= mark.childNodes.length);
             if (isAtEnd) {
               e.preventDefault();
               let nextText = mark.nextSibling;
@@ -4867,7 +4889,7 @@
 
         svgContent += `<rect x="${barX}" y="${barY}" width="${barWidth}" height="${barH}" rx="3" fill="${color}" />`;
         svgContent += `<text x="${barX + barWidth / 2}" y="${barY - 6}" font-size="11" font-weight="600" text-anchor="middle" fill="var(--text-primary, #334155)">${val}</text>`;
-        svgContent += `<text x="${barX + barWidth / 2}" y="${h - padBottom + 16}" font-size="11" text-anchor="middle" fill="var(--text-muted, #64748b)">${labels[idx] || `Item ${idx+1}`}</text>`;
+        svgContent += `<text x="${barX + barWidth / 2}" y="${h - padBottom + 16}" font-size="11" text-anchor="middle" fill="var(--text-muted, #64748b)">${labels[idx] || `Item ${idx + 1}`}</text>`;
       });
     } else if (chartType === 'bar') {
       const padLeft = 60, padBottom = 25, padTop = 30, padRight = 45;
@@ -4884,7 +4906,7 @@
         const color = colors[idx % colors.length];
 
         svgContent += `<rect x="${padLeft}" y="${barY}" width="${barW}" height="${barHeight}" rx="3" fill="${color}" />`;
-        svgContent += `<text x="${padLeft - 8}" y="${barY + barHeight / 2 + 4}" font-size="11" text-anchor="end" fill="var(--text-muted, #64748b)">${labels[idx] || `Item ${idx+1}`}</text>`;
+        svgContent += `<text x="${padLeft - 8}" y="${barY + barHeight / 2 + 4}" font-size="11" text-anchor="end" fill="var(--text-muted, #64748b)">${labels[idx] || `Item ${idx + 1}`}</text>`;
         svgContent += `<text x="${padLeft + barW + 8}" y="${barY + barHeight / 2 + 4}" font-size="11" font-weight="600" fill="var(--text-primary, #334155)">${val}</text>`;
       });
     } else if (chartType === 'line') {
@@ -4903,7 +4925,7 @@
         points.push(`${px},${py}`);
         svgContent += `<circle cx="${px}" cy="${py}" r="5" fill="#0284c7" stroke="#ffffff" stroke-width="2" />`;
         svgContent += `<text x="${px}" y="${py - 8}" font-size="11" font-weight="600" text-anchor="middle" fill="var(--text-primary, #334155)">${val}</text>`;
-        svgContent += `<text x="${px}" y="${h - padBottom + 16}" font-size="11" text-anchor="middle" fill="var(--text-muted, #64748b)">${labels[idx] || `P${idx+1}`}</text>`;
+        svgContent += `<text x="${px}" y="${h - padBottom + 16}" font-size="11" text-anchor="middle" fill="var(--text-muted, #64748b)">${labels[idx] || `P${idx + 1}`}</text>`;
       });
       svgContent = `<polyline points="${points.join(' ')}" fill="none" stroke="#0284c7" stroke-width="3" />` + svgContent;
     } else if (chartType === 'doughnut') {
@@ -4931,7 +4953,7 @@
         const legY = 32 + idx * 24;
         const pct = Math.round((val / total) * 100);
         svgContent += `<rect x="${w - 110}" y="${legY}" width="12" height="12" rx="2" fill="${color}" />`;
-        svgContent += `<text x="${w - 92}" y="${legY + 10}" font-size="11" fill="var(--text-primary, #334155)">${labels[idx] || `Item ${idx+1}`} (${pct}%)</text>`;
+        svgContent += `<text x="${w - 92}" y="${legY + 10}" font-size="11" fill="var(--text-primary, #334155)">${labels[idx] || `Item ${idx + 1}`} (${pct}%)</text>`;
 
         startAngle = endAngle;
       });
@@ -4972,7 +4994,7 @@
         const py = Math.round(h - padBottom - (val / maxVal) * (plotH - 20));
         svgContent += `<circle cx="${px}" cy="${py}" r="5" fill="#0284c7" stroke="#ffffff" stroke-width="2" />`;
         svgContent += `<text x="${px}" y="${py - 8}" font-size="11" font-weight="600" text-anchor="middle" fill="var(--text-primary, #334155)">${val}</text>`;
-        svgContent += `<text x="${px}" y="${h - padBottom + 16}" font-size="11" text-anchor="middle" fill="var(--text-muted, #64748b)">${labels[idx] || `P${idx+1}`}</text>`;
+        svgContent += `<text x="${px}" y="${h - padBottom + 16}" font-size="11" text-anchor="middle" fill="var(--text-muted, #64748b)">${labels[idx] || `P${idx + 1}`}</text>`;
       });
     } else if (chartType === 'radar') {
       const cx = w / 2 - 40, cy = h / 2 + 8, r = 85;
@@ -4996,7 +5018,7 @@
 
         const lx = cx + (r + 16) * Math.cos(angle);
         const ly = cy + (r + 16) * Math.sin(angle) + 4;
-        svgContent += `<text x="${lx}" y="${ly}" font-size="10" font-weight="600" text-anchor="middle" fill="var(--text-muted, #64748b)">${labels[i] || `A${i+1}`}</text>`;
+        svgContent += `<text x="${lx}" y="${ly}" font-size="10" font-weight="600" text-anchor="middle" fill="var(--text-muted, #64748b)">${labels[i] || `A${i + 1}`}</text>`;
 
         const val = values[i] || 0;
         const dist = (val / maxVal) * r;
@@ -5031,7 +5053,7 @@
         svgContent += `<circle cx="${px}" cy="${py}" r="8" fill="rgba(234, 88, 12, 0.2)" />`;
         svgContent += `<circle cx="${px}" cy="${py}" r="5" fill="#ea580c" stroke="#ffffff" stroke-width="2" />`;
         svgContent += `<text x="${px}" y="${py - 10}" font-size="11" font-weight="600" text-anchor="middle" fill="var(--text-primary, #334155)">${val}</text>`;
-        svgContent += `<text x="${px}" y="${h - padBottom + 16}" font-size="11" text-anchor="middle" fill="var(--text-muted, #64748b)">${labels[idx] || `P${idx+1}`}</text>`;
+        svgContent += `<text x="${px}" y="${h - padBottom + 16}" font-size="11" text-anchor="middle" fill="var(--text-muted, #64748b)">${labels[idx] || `P${idx + 1}`}</text>`;
       });
     } else if (chartType === 'stacked') {
       const padLeft = 45, padBottom = 35, padTop = 30, padRight = 20;
@@ -5055,7 +5077,7 @@
         svgContent += `<rect x="${barX}" y="${seg2Y}" width="${barWidth}" height="${seg2H}" rx="3" fill="#10b981" />`;
 
         svgContent += `<text x="${barX + barWidth / 2}" y="${seg2Y - 6}" font-size="11" font-weight="700" text-anchor="middle" fill="var(--text-primary, #334155)">${val}</text>`;
-        svgContent += `<text x="${barX + barWidth / 2}" y="${h - padBottom + 16}" font-size="11" text-anchor="middle" fill="var(--text-muted, #64748b)">${labels[idx] || `Item ${idx+1}`}</text>`;
+        svgContent += `<text x="${barX + barWidth / 2}" y="${h - padBottom + 16}" font-size="11" text-anchor="middle" fill="var(--text-muted, #64748b)">${labels[idx] || `Item ${idx + 1}`}</text>`;
       });
 
       svgContent += `<rect x="${w - 140}" y="${padTop}" width="10" height="10" fill="#0284c7" />`;
@@ -5083,7 +5105,7 @@
         const legY = 40 + idx * 24;
         const pct = Math.round((val / total) * 100);
         svgContent += `<rect x="${w - 110}" y="${legY}" width="12" height="12" rx="2" fill="${color}" />`;
-        svgContent += `<text x="${w - 92}" y="${legY + 10}" font-size="11" fill="var(--text-primary, #334155)">${labels[idx] || `Item ${idx+1}`} (${pct}%)</text>`;
+        svgContent += `<text x="${w - 92}" y="${legY + 10}" font-size="11" fill="var(--text-primary, #334155)">${labels[idx] || `Item ${idx + 1}`} (${pct}%)</text>`;
 
         startAngle = endAngle;
       });
@@ -5849,7 +5871,7 @@
         touchTimer = setTimeout(() => {
           if (!touchTarget) return;
           if (navigator.vibrate) {
-            try { navigator.vibrate(40); } catch (_) {}
+            try { navigator.vibrate(40); } catch (_) { }
           }
           if (touchTarget.tagName === 'TD') {
             if (table.querySelector('th.excel-col-selected, tr.excel-row-selected, th.excel-row-selected')) {
@@ -6696,8 +6718,8 @@
         item.classList.toggle('checked', isChecked);
       }
       const textEl = cb.closest('.onenote-checklist-item')?.querySelector('.onenote-checklist-text') ||
-                     item?.querySelector('.onenote-checklist-text, .task-text, span') ||
-                     cb.nextElementSibling;
+        item?.querySelector('.onenote-checklist-text, .task-text, span') ||
+        cb.nextElementSibling;
       if (textEl && textEl !== cb) {
         textEl.classList.toggle('checked', isChecked);
         if (isChecked) {
@@ -6978,9 +7000,9 @@
 
       // PDF Document mode support (Issue 3.a)
       if (window.DocFlow.currentMode === 'pdf') {
-        const curPdfPage = document.querySelector('.pdf-page-wrap.visible') || 
-                           document.querySelector('.pdf-page-wrap') || 
-                           document.getElementById('pdfPages');
+        const curPdfPage = document.querySelector('.pdf-page-wrap.visible') ||
+          document.querySelector('.pdf-page-wrap') ||
+          document.getElementById('pdfPages');
         if (curPdfPage) {
           if (getComputedStyle(curPdfPage).position === 'static') {
             curPdfPage.style.position = 'relative';
@@ -7675,24 +7697,24 @@
     // Dismiss Layout, View, PPT, Excel & Bullet Popovers on outside click
     document.addEventListener('click', e => {
       if (!e.target.closest('#marginDropdownWrap') &&
-          !e.target.closest('#pageSizeDropdownWrap') &&
-          !e.target.closest('#columnsDropdownWrap') &&
-          !e.target.closest('#watermarkDropdownWrap') &&
-          !e.target.closest('#hyphenDropdownWrap') &&
-          !e.target.closest('#pageBorderDropdownWrap') &&
-          !e.target.closest('#pptNewSlideDropdownWrap') &&
-          !e.target.closest('#pptLayoutDropdownWrap') &&
-          !e.target.closest('#pptBgImageDropdownWrap') &&
-          !e.target.closest('#pptTransitionDropdownWrap') &&
-          !e.target.closest('#pptAnimationDropdownWrap') &&
-          !e.target.closest('#excelFormulaDropdownWrap') &&
-          !e.target.closest('#excelBorderDropdownWrap') &&
-          !e.target.closest('#pptSlideDropdownWrap') &&
-          !e.target.closest('#paraSpacingDropdownWrap') &&
-          !e.target.closest('#pagePaddingDropdownWrap') &&
-          !e.target.closest('#zoomPresetsDropdownWrap') &&
-          !e.target.closest('.pptx-sidebar-add-wrap') &&
-          !e.target.closest('.bullet-dropdown-wrap')) {
+        !e.target.closest('#pageSizeDropdownWrap') &&
+        !e.target.closest('#columnsDropdownWrap') &&
+        !e.target.closest('#watermarkDropdownWrap') &&
+        !e.target.closest('#hyphenDropdownWrap') &&
+        !e.target.closest('#pageBorderDropdownWrap') &&
+        !e.target.closest('#pptNewSlideDropdownWrap') &&
+        !e.target.closest('#pptLayoutDropdownWrap') &&
+        !e.target.closest('#pptBgImageDropdownWrap') &&
+        !e.target.closest('#pptTransitionDropdownWrap') &&
+        !e.target.closest('#pptAnimationDropdownWrap') &&
+        !e.target.closest('#excelFormulaDropdownWrap') &&
+        !e.target.closest('#excelBorderDropdownWrap') &&
+        !e.target.closest('#pptSlideDropdownWrap') &&
+        !e.target.closest('#paraSpacingDropdownWrap') &&
+        !e.target.closest('#pagePaddingDropdownWrap') &&
+        !e.target.closest('#zoomPresetsDropdownWrap') &&
+        !e.target.closest('.pptx-sidebar-add-wrap') &&
+        !e.target.closest('.bullet-dropdown-wrap')) {
         $('#marginPopover')?.classList.remove('show');
         $('#pageSizePopover')?.classList.remove('show');
         $('#columnsPopover')?.classList.remove('show');
@@ -8444,9 +8466,9 @@
       const name = (activeTab?.name || '').toLowerCase();
       const type = (activeTab?.fileType || '').toLowerCase();
       const isWord = (name.endsWith('.docx') || name.endsWith('.doc') || type === 'docx' || type === 'doc' || type === 'word') &&
-                     !name.endsWith('.xlsx') && !name.endsWith('.xls') && !name.endsWith('.csv') &&
-                     !name.endsWith('.pptx') && !name.endsWith('.ppt') && !name.endsWith('.pdf') &&
-                     !name.endsWith('.html') && !name.endsWith('.htm') && !name.endsWith('.md') && !name.endsWith('.txt');
+        !name.endsWith('.xlsx') && !name.endsWith('.xls') && !name.endsWith('.csv') &&
+        !name.endsWith('.pptx') && !name.endsWith('.ppt') && !name.endsWith('.pdf') &&
+        !name.endsWith('.html') && !name.endsWith('.htm') && !name.endsWith('.md') && !name.endsWith('.txt');
       const hfBtn = $('#layoutHeaderFooterBtn');
       if (hfBtn) {
         hfBtn.style.display = 'inline-flex';
@@ -10148,7 +10170,7 @@
       });
       window._activeExcelCell = null;
       if (document.activeElement && table.contains(document.activeElement)) {
-        try { document.activeElement.blur(); } catch (_) {}
+        try { document.activeElement.blur(); } catch (_) { }
       }
     }
 
@@ -10382,6 +10404,7 @@
       if (!ed) return;
       window.DocFlow.Editor?.saveSnapshot?.();
       ed.focus();
+      window.DocFlow.Editor?.restoreSelection?.();
       const pre = ed.querySelector('pre.md-code-view, pre.html-code-view');
       const targetContainer = pre || ed;
 
@@ -10400,13 +10423,27 @@
         range.setEndAfter(node);
         sel.removeAllRanges();
         sel.addRange(range);
+        window.DocFlow.Editor?.saveSelection?.();
       } else {
-        const node = document.createTextNode((wrapPrefix || wrapSuffix) ? (wrapPrefix + snippet + wrapSuffix) : snippet);
+        const textToInsert = (wrapPrefix || wrapSuffix) ? (wrapPrefix + snippet + wrapSuffix) : snippet;
+        const node = document.createTextNode(textToInsert);
         targetContainer.appendChild(node);
+        try {
+          const range = document.createRange();
+          range.setStartAfter(node);
+          range.setEndAfter(node);
+          if (sel) {
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+          window.DocFlow.Editor?.saveSelection?.();
+        } catch (_) { }
       }
       window.DocFlow.Editor?.notifyChange?.();
       window.DocFlow.Editor?.saveSnapshot?.();
+      window.DocFlow.Editor?.focusEditor?.();
     };
+    window.DocFlow.insertSnippetIntoEditor = insertSnippetIntoEditor;
 
     // Helper: Markdown Table Aligner & Formatter (Issue 3)
     function formatMarkdownTables(content) {
@@ -10721,33 +10758,141 @@
       return walk(doc.body).replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
     }
 
-    // Unique Markdown Productivity Tools (No Duplicates Anywhere)
+    // Unique Markdown Productivity Tools (MD Stats Panel - Issue 4)
     $('#mdStatsBtn')?.addEventListener('click', () => {
+      const activeTab = window.DocFlow?.UI?.Tabs?.get(window.DocFlow?.UI?.Tabs?.activeId);
+      const tabName = (activeTab?.name || '').toLowerCase();
+      const fileType = (activeTab?.fileType || activeTab?.type || '').toLowerCase();
+      const isMd = tabName.endsWith('.md') || tabName.endsWith('.markdown') || fileType === 'md' || fileType === 'markdown';
+      if (!isMd) {
+        showToast('Markdown Stats is only available for Markdown (.md) files', 'warning');
+        return;
+      }
+
+      window.DocFlow.Editor?.saveSelection?.();
       const content = getCodeEditorContent('md');
       const words = (content.match(/\b\w+\b/g) || []).length;
       const chars = content.length;
-      const lines = content.split('\n').length;
-      const headings = (content.match(/^#{1,6}\s+/gm) || []).length;
+      const charsNoSpace = content.replace(/\s+/g, '').length;
+      const lines = content ? content.split('\n').length : 0;
+      const h1Count = (content.match(/^#\s+/gm) || []).length;
+      const h2Count = (content.match(/^##\s+/gm) || []).length;
+      const h3Count = (content.match(/^###\s+/gm) || []).length;
+      const hAllCount = (content.match(/^#{1,6}\s+/gm) || []).length;
+      const paragraphs = content.split(/\n\s*\n/).filter(p => p.trim().length > 0).length;
+      const codeBlocks = (content.match(/```[\s\S]*?```/g) || []).length;
+      const inlineCodes = (content.match(/`[^`\n]+`/g) || []).length;
+      const links = (content.match(/\[([^\]]+)\]\(([^)]+)\)/g) || []).length;
+      const images = (content.match(/!\[([^\]]*)\]\(([^)]+)\)/g) || []).length;
       const readMin = Math.max(1, Math.ceil(words / 200));
-      showToast(`Stats: ${words} words, ${chars} chars, ${lines} lines, ${headings} headings (~${readMin} min read)`, 'info');
+      const speakMin = Math.max(1, Math.ceil(words / 130));
+
+      const container = $('#mdStatsContainer');
+      if (container) {
+        container.innerHTML = `
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px;margin-bottom:16px;">
+            <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;">
+              <div style="font-size:22px;font-weight:700;color:var(--accent);">${words}</div>
+              <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;font-weight:600;"><i class="fas fa-font"></i> Words</div>
+            </div>
+            <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;">
+              <div style="font-size:22px;font-weight:700;color:#10b981;">${chars}</div>
+              <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;font-weight:600;"><i class="fas fa-keyboard"></i> Characters</div>
+            </div>
+            <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;">
+              <div style="font-size:22px;font-weight:700;color:#f59e0b;">${charsNoSpace}</div>
+              <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;font-weight:600;"><i class="fas fa-compress"></i> No Spaces</div>
+            </div>
+            <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;">
+              <div style="font-size:22px;font-weight:700;color:#8b5cf6;">${lines}</div>
+              <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;font-weight:600;"><i class="fas fa-align-left"></i> Lines</div>
+            </div>
+          </div>
+
+          <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;">
+            <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+              <i class="fas fa-chart-pie" style="color:var(--accent);"></i> Structure & Elements Breakdown
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;font-size:12px;">
+              <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--border);">
+                <span style="color:var(--text-secondary);">Headings (Total):</span>
+                <span style="font-weight:600;color:var(--text-primary);">${hAllCount} (H1:${h1Count}, H2:${h2Count}, H3:${h3Count})</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--border);">
+                <span style="color:var(--text-secondary);">Paragraphs:</span>
+                <span style="font-weight:600;color:var(--text-primary);">${paragraphs}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--border);">
+                <span style="color:var(--text-secondary);">Code Blocks:</span>
+                <span style="font-weight:600;color:var(--text-primary);">${codeBlocks} (Inline: ${inlineCodes})</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--border);">
+                <span style="color:var(--text-secondary);">Links & Images:</span>
+                <span style="font-weight:600;color:var(--text-primary);">${links} links, ${images} images</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;align-items:center;gap:12px;">
+              <div style="width:36px;height:36px;border-radius:8px;background:rgba(2,132,199,0.12);display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:16px;">
+                <i class="fas fa-book-open"></i>
+              </div>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--text-primary);">~${readMin} min</div>
+                <div style="font-size:11px;color:var(--text-muted);">Estimated Reading Time (200 wpm)</div>
+              </div>
+            </div>
+            <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;align-items:center;gap:12px;">
+              <div style="width:36px;height:36px;border-radius:8px;background:rgba(16,185,129,0.12);display:flex;align-items:center;justify-content:center;color:#10b981;font-size:16px;">
+                <i class="fas fa-microphone"></i>
+              </div>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--text-primary);">~${speakMin} min</div>
+                <div style="font-size:11px;color:var(--text-muted);">Estimated Speaking Time (130 wpm)</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      window.DocFlow.UI?.openModal?.('#mdStatsModal');
+    });
+
+    $('#mdStatsCloseBtn')?.addEventListener('click', () => {
+      window.DocFlow.UI?.closeModal?.('#mdStatsModal');
+      window.DocFlow.Editor?.focusEditor?.();
+    });
+    $('#mdStatsDoneBtn')?.addEventListener('click', () => {
+      window.DocFlow.UI?.closeModal?.('#mdStatsModal');
+      window.DocFlow.Editor?.focusEditor?.();
     });
 
     $('#mdBeautifyBtn')?.addEventListener('click', () => {
+      const activeTab = window.DocFlow?.UI?.Tabs?.get(window.DocFlow?.UI?.Tabs?.activeId);
+      const tabName = (activeTab?.name || '').toLowerCase();
+      const fileType = (activeTab?.fileType || activeTab?.type || '').toLowerCase();
+      const isMd = tabName.endsWith('.md') || tabName.endsWith('.markdown') || fileType === 'md' ||
+        fileType === 'markdown';
+
+      if (!isMd) { showToast('Clean MD is only available for Markdown (.md) files', 'warning'); return; }
       const ed = $('#editor');
-      if (!ed) return;
+      if (!ed) { showToast('Editor not found', 'warning'); return; }
+      // Read Markdown content
       const pre = ed.querySelector('pre.md-code-view');
-      let raw = pre ? (pre.innerText || pre.textContent) : (ed.innerText || ed.textContent || '');
-      if (raw.trim()) {
-        window.DocFlow.Editor?.saveSnapshot?.();
+      const raw = pre ? (pre.innerText || pre.textContent || '') : (ed.innerText || ed.textContent || '');
+      if (raw.trim()) { window.DocFlow.Editor?.saveSnapshot?.();
+        // Clean and normalize Markdown
         const cleaned = cleanMarkdown(raw);
-        if (pre) pre.textContent = cleaned;
-        else ed.textContent = cleaned;
+        // Update the editor content
+        if (pre) { pre.textContent = cleaned; } else { ed.textContent = cleaned; }
+        // Notify the editor and save the updated state
         window.DocFlow.Editor?.notifyChange?.();
         window.DocFlow.Editor?.saveSnapshot?.();
-        showToast('Markdown cleaned, formatted and normalized', 'success');
+        showToast('Markdown cleaned, formatted and normalized','success');
       } else {
         showToast('No Markdown content to clean', 'info');
       }
+      window.DocFlow.Editor?.focusEditor?.();
     });
 
     // Unique Tool: Extract all links & references from Markdown
@@ -10839,21 +10984,46 @@
           { el: 'Image', syn: '![Alt](https://image.url)', snip: '![Alt](https://image.url)' },
           { el: 'Math LaTeX', syn: '$$ f(x) = \\int ... $$', snip: '$$\nf(x) = \\int_{-\\infty}^\\infty \\hat{f}(\\xi)\\,e^{2 \\pi i \\xi x}\\,d\\xi\n$$\n' }
         ];
-        tbody.innerHTML = cheats.map(c => `
+        tbody.innerHTML = cheats.map((c, idx) => `
           <tr style="border-bottom:1px solid var(--border);">
             <td style="padding:10px 8px;font-weight:600;color:var(--text-primary);width:26%;word-break:break-word;">${c.el}</td>
             <td style="padding:10px 8px;font-family:var(--font-mono, monospace);font-size:11.5px;color:var(--accent);width:54%;word-break:break-word;overflow-wrap:break-word;white-space:pre-wrap;">${escHtml(c.syn)}</td>
             <td style="padding:10px 8px;width:20%;text-align:right;white-space:nowrap;">
-              <button type="button" class="md-cheat-insert-btn" onclick="window.DocFlow?.insertSnippetIntoEditor?.(${JSON.stringify(c.snip)}); window.DocFlow?.UI?.closeModal?.('#mdCheatSheetModal'); window.DocFlow?.UI?.showToast?.('Inserted ${c.el} snippet', 'info');">Insert</button>
+              <button type="button" class="md-cheat-insert-btn" data-cheat-idx="${idx}">Insert</button>
             </td>
           </tr>
         `).join('');
+
+        if (!tbody._hasClickListener) {
+          tbody._hasClickListener = true;
+          tbody.addEventListener('click', e => {
+            const btn = e.target.closest('.md-cheat-insert-btn');
+            if (!btn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const idx = parseInt(btn.dataset.cheatIdx, 10);
+            const cheat = cheats[idx];
+            if (cheat) {
+              window.DocFlow.UI?.closeModal?.('#mdCheatSheetModal');
+              insertSnippetIntoEditor(cheat.snip);
+              window.DocFlow.UI?.showToast?.(`Inserted ${cheat.el} snippet`, 'info');
+              window.DocFlow.Editor?.focusEditor?.();
+            }
+          });
+        }
       }
+      window.DocFlow.Editor?.saveSelection?.();
       window.DocFlow.UI?.openModal?.('#mdCheatSheetModal');
     });
 
-    $('#mdCheatSheetCloseBtn')?.addEventListener('click', () => window.DocFlow.UI?.closeModal?.('#mdCheatSheetModal'));
-    $('#mdCheatSheetDoneBtn')?.addEventListener('click', () => window.DocFlow.UI?.closeModal?.('#mdCheatSheetModal'));
+    $('#mdCheatSheetCloseBtn')?.addEventListener('click', () => {
+      window.DocFlow.UI?.closeModal?.('#mdCheatSheetModal');
+      window.DocFlow.Editor?.focusEditor?.();
+    });
+    $('#mdCheatSheetDoneBtn')?.addEventListener('click', () => {
+      window.DocFlow.UI?.closeModal?.('#mdCheatSheetModal');
+      window.DocFlow.Editor?.focusEditor?.();
+    });
 
     function lintMarkdown(content) {
       const issues = [];
@@ -10917,6 +11087,15 @@
     });
 
     $('#mdCopyHtmlBtn')?.addEventListener('click', async () => {
+      const activeTab = window.DocFlow?.UI?.Tabs?.get(window.DocFlow?.UI?.Tabs?.activeId);
+      const tabName = (activeTab?.name || '').toLowerCase();
+      const fileType = (activeTab?.fileType || activeTab?.type || '').toLowerCase();
+      const isMd = tabName.endsWith('.md') || tabName.endsWith('.markdown') || fileType === 'md' || fileType === 'markdown';
+      if (!isMd) {
+        showToast('Copy HTML is only available for Markdown (.md) files', 'warning');
+        return;
+      }
+
       const content = getCodeEditorContent('md');
       if (!content.trim()) {
         showToast('No Markdown content to compile', 'warning');
@@ -10940,24 +11119,45 @@
         ta.remove();
         showToast('Compiled HTML copied to clipboard!', 'success');
       }
+      window.DocFlow.Editor?.focusEditor?.();
     });
 
-    $('#mdHtmlToMdBtn')?.addEventListener('click', () => {
-      const ed = $('#editor');
-      if (!ed) return;
-      const pre = ed.querySelector('pre.md-code-view');
-      let raw = pre ? (pre.innerText || pre.textContent) : (ed.innerText || ed.textContent || ed.innerHTML || '');
-      if (!raw || !raw.trim()) {
-        showToast('No HTML markup in editor to convert', 'info');
+    $('#mdHtmlToMdBtn')?.addEventListener('click', async () => {
+      const activeTab = window.DocFlow?.UI?.Tabs?.get(window.DocFlow?.UI?.Tabs?.activeId);
+      const tabName = (activeTab?.name || '').toLowerCase();
+      const fileType = (activeTab?.fileType || activeTab?.type || '').toLowerCase();
+      const isMd = tabName.endsWith('.md') || tabName.endsWith('.markdown') || fileType === 'md' || fileType === 'markdown';
+      if (!isMd) {
+        showToast('MD to HTML is only available for Markdown (.md) files', 'warning');
         return;
       }
-      window.DocFlow.Editor?.saveSnapshot?.();
-      const convertedMd = htmlToMarkdown(raw);
-      if (pre) pre.textContent = convertedMd;
-      else ed.textContent = convertedMd;
-      window.DocFlow.Editor?.notifyChange?.();
-      window.DocFlow.Editor?.saveSnapshot?.();
-      showToast('HTML converted to clean Markdown syntax', 'success');
+
+      const content = getCodeEditorContent('md');
+      if (!content || !content.trim()) {
+        showToast('No Markdown content in editor to convert', 'warning');
+        return;
+      }
+
+      let html = '';
+      if (window.marked && typeof window.marked.parse === 'function') {
+        html = window.marked.parse(content, { gfm: true, breaks: true });
+      } else {
+        html = renderBasicMarkdown(content);
+      }
+
+      try {
+        await navigator.clipboard.writeText(html);
+        showToast('Markdown converted to HTML & copied to clipboard!', 'success');
+      } catch (_) {
+        const ta = document.createElement('textarea');
+        ta.value = html;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        showToast('Markdown converted to HTML & copied to clipboard!', 'success');
+      }
+      window.DocFlow.Editor?.focusEditor?.();
     });
 
     $('#mdPreviewBtn')?.addEventListener('click', () => openCodePreviewModal('md'));
@@ -11346,10 +11546,19 @@
       }
     });
 
-    $('#htmlInspectorBtn')?.addEventListener('click', () => {
+    function inspectHtmlDom() {
+      const activeTab = window.DocFlow?.UI?.Tabs?.get(window.DocFlow?.UI?.Tabs?.activeId);
+      const tabName = (activeTab?.name || '').toLowerCase();
+      const fileType = (activeTab?.fileType || activeTab?.type || '').toLowerCase();
+      const isHtml = tabName.endsWith('.html') || tabName.endsWith('.htm') || fileType === 'html';
+      if (!isHtml) {
+        showToast('DOM Inspector is only available for HTML (.html) files', 'warning');
+        return;
+      }
+
       const content = getCodeEditorContent('html');
       if (!content.trim()) {
-        showToast('No HTML code to inspect', 'warning');
+        showToast('No HTML code in editor to inspect', 'warning');
         return;
       }
       const parser = new DOMParser();
@@ -11369,9 +11578,67 @@
           Array.from(el.children).forEach(c => calcDepth(c, depth + 1));
         }
       }
-      calcDepth(doc.body || doc.documentElement, 1);
+      calcDepth(doc.documentElement, 1);
 
-      showToast(`DOM: ${allElements.length} tags (depth ${maxDepth}), ${headings} headings, ${links} links, ${images} images, ${forms} forms, ${scripts} scripts, ${styles} styles`, 'info');
+      const overview = $('#htmlDomInspectorOverview');
+      if (overview) {
+        overview.innerHTML = `
+          <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:11.5px;">
+            <span style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-weight:600;"><i class="fas fa-cubes" style="color:#06b6d4;"></i> Total Elements: <strong>${allElements.length}</strong></span>
+            <span style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-weight:600;"><i class="fas fa-layer-group" style="color:#8b5cf6;"></i> Max Depth: <strong>${maxDepth}</strong></span>
+            <span style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-weight:600;"><i class="fas fa-heading" style="color:#3b82f6;"></i> Headings: <strong>${headings}</strong></span>
+            <span style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-weight:600;"><i class="fas fa-link" style="color:#10b981;"></i> Links: <strong>${links}</strong></span>
+            <span style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-weight:600;"><i class="fas fa-image" style="color:#ec4899;"></i> Images: <strong>${images}</strong></span>
+            <span style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-weight:600;"><i class="fas fa-code" style="color:#f59e0b;"></i> Scripts/Styles: <strong>${scripts + styles}</strong></span>
+          </div>
+        `;
+      }
+
+      const tree = $('#htmlDomInspectorTree');
+      if (tree) {
+        function buildTree(node, depth = 0) {
+          if (!node || node.nodeType !== 1) return '';
+          const tag = node.tagName.toLowerCase();
+          const id = node.id ? `<span style="color:#f59e0b;">#${escHtml(node.id)}</span>` : '';
+          const classes = node.className && typeof node.className === 'string'
+            ? node.className.trim().split(/\s+/).filter(Boolean).slice(0, 3).map(c => `<span style="color:#8b5cf6;">.${escHtml(c)}</span>`).join('')
+            : '';
+          const childCount = node.children.length;
+          const textSnippet = childCount === 0 && node.textContent.trim()
+            ? ` <span style="color:var(--text-muted);font-style:italic;">"${escHtml(node.textContent.trim().substring(0, 35))}"</span>`
+            : '';
+
+          const indent = depth * 16;
+          let html = `
+            <div style="padding:2px 0 2px ${indent}px;border-left:1px dotted var(--border);margin-left:4px;">
+              <span style="color:#0284c7;font-weight:600;">&lt;${tag}</span>${id}${classes}<span style="color:#0284c7;font-weight:600;">&gt;</span>${textSnippet}
+              ${childCount > 0 ? `<span style="font-size:10px;color:var(--text-muted);margin-left:6px;">(${childCount} child${childCount > 1 ? 'ren' : ''})</span>` : ''}
+            </div>
+          `;
+
+          Array.from(node.children).forEach(child => {
+            html += buildTree(child, depth + 1);
+          });
+          return html;
+        }
+
+        tree.innerHTML = buildTree(doc.documentElement) || '<div style="color:var(--text-muted);">Empty DOM</div>';
+      }
+
+      window.DocFlow.UI?.openModal?.('#htmlDomInspectorModal');
+    }
+
+    window.DocFlow.inspectHtmlDom = inspectHtmlDom;
+
+    $('#htmlInspectorBtn')?.addEventListener('click', inspectHtmlDom);
+    $('#htmlDomInspectorRefreshBtn')?.addEventListener('click', inspectHtmlDom);
+    $('#htmlDomInspectorCloseBtn')?.addEventListener('click', () => {
+      window.DocFlow.UI?.closeModal?.('#htmlDomInspectorModal');
+      window.DocFlow.Editor?.focusEditor?.();
+    });
+    $('#htmlDomInspectorDoneBtn')?.addEventListener('click', () => {
+      window.DocFlow.UI?.closeModal?.('#htmlDomInspectorModal');
+      window.DocFlow.Editor?.focusEditor?.();
     });
 
     $('#htmlValidateBtn')?.addEventListener('click', () => {
@@ -11540,10 +11807,10 @@
 
       const activeTab = window.DocFlow?.getActiveTab?.() || window.DocFlow?.Tabs?.getActive?.();
       const isHtmlDoc = (activeTab?.fileType || '').toUpperCase() === 'HTML' ||
-                        (activeTab?.name || '').toLowerCase().endsWith('.html') ||
-                        (activeTab?.name || '').toLowerCase().endsWith('.htm') ||
-                        !!ed.querySelector('pre.html-code-view') ||
-                        document.querySelector('.ribbon-tab-btn[data-tab="html"]')?.classList.contains('active');
+        (activeTab?.name || '').toLowerCase().endsWith('.html') ||
+        (activeTab?.name || '').toLowerCase().endsWith('.htm') ||
+        !!ed.querySelector('pre.html-code-view') ||
+        document.querySelector('.ribbon-tab-btn[data-tab="html"]')?.classList.contains('active');
 
       if (!isHtmlDoc) {
         showToast('Comment is only available in HTML documents', 'warning');
@@ -11799,7 +12066,7 @@
           const b = parseInt(m[3], 10).toString(16).padStart(2, '0');
           return `#${r}${g}${b}`.toLowerCase();
         }
-      } catch (e) {}
+      } catch (e) { }
       return '#3b82f6';
     }
 
@@ -12272,7 +12539,7 @@
                 if (res && res.svg) {
                   target.innerHTML = res.svg;
                   if (res.bindFunctions) {
-                    try { res.bindFunctions(target); } catch (_) {}
+                    try { res.bindFunctions(target); } catch (_) { }
                   }
                   renderedSuccess = true;
                 }
@@ -12306,6 +12573,24 @@
 
     // 14. Code Preview Modal (Markdown & HTML Live Previews - Issues 3 & 4)
     function openCodePreviewModal(mode) {
+      const activeTab = window.DocFlow?.UI?.Tabs?.get(window.DocFlow?.UI?.Tabs?.activeId);
+      const tabName = (activeTab?.name || '').toLowerCase();
+      const fileType = (activeTab?.fileType || activeTab?.type || '').toLowerCase();
+
+      if (mode === 'md') {
+        const isMd = tabName.endsWith('.md') || tabName.endsWith('.markdown') || fileType === 'md' || fileType === 'markdown';
+        if (!isMd) {
+          showToast('Markdown Preview is only available for Markdown (.md) files', 'warning');
+          return;
+        }
+      } else if (mode === 'html') {
+        const isHtml = tabName.endsWith('.html') || tabName.endsWith('.htm') || fileType === 'html';
+        if (!isHtml) {
+          showToast('HTML Preview is only available for HTML (.html) files', 'warning');
+          return;
+        }
+      }
+
       const modal = $('#codePreviewModal');
       if (!modal) return;
       const title = $('#previewModalTitle');
@@ -12509,7 +12794,7 @@
       switchRibbonTab('home');
       try {
         history.replaceState(null, '', '#home');
-      } catch (_) {}
+      } catch (_) { }
     });
 
     initKeyboardShortcuts();

@@ -65,10 +65,12 @@
       } catch (e) { }
     }
 
-    // Fallback: place caret at the end of editor
+    // Fallback: place caret inside pre (if code view) or at the end of editor
     try {
+      const pre = editor.querySelector('pre.md-code-view, pre.html-code-view');
+      const target = pre || editor;
       const range = document.createRange();
-      range.selectNodeContents(editor);
+      range.selectNodeContents(target);
       range.collapse(false);
       sel.removeAllRanges();
       sel.addRange(range);
@@ -84,17 +86,35 @@
       const excelContainer = document.querySelector('.excel-spreadsheet-container');
       if (excelContainer) {
         if (window._activeExcelCell && excelContainer.contains(window._activeExcelCell)) {
-          window._activeExcelCell.focus();
+          try { window._activeExcelCell.focus({ preventScroll: true }); } catch (_) { window._activeExcelCell.focus(); }
           return;
         }
         const selCell = excelContainer.querySelector('td.excel-cell-selected');
         if (selCell) {
           window._activeExcelCell = selCell;
-          selCell.focus();
+          try { selCell.focus({ preventScroll: true }); } catch (_) { selCell.focus(); }
           return;
         }
       }
-      editor.focus();
+
+      // For PowerPoint slide deck mode: focus active slide editable area
+      const activeSlide = editor.querySelector('.pptx-slide-wrapper.active-slide') || editor.querySelector('.pptx-slide-card');
+      if (document.body.classList.contains('slide-deck-mode') && activeSlide) {
+        if (savedSelection) {
+          try {
+            if (activeSlide.contains(savedSelection.commonAncestorContainer) || editor.contains(savedSelection.commonAncestorContainer)) {
+              restoreSelection();
+              return;
+            }
+          } catch (_) {}
+        }
+        const editable = activeSlide.querySelector('[contenteditable="true"]') || activeSlide;
+        try { editable.focus({ preventScroll: true }); } catch (_) { editable.focus(); }
+        restoreSelection();
+        return;
+      }
+
+      try { editor.focus({ preventScroll: true }); } catch (_) { editor.focus(); }
       restoreSelection();
     }
   }
@@ -3294,10 +3314,36 @@
       }
     }, true);
 
-    // Continuous Caret & Selection Tracking (Issue 2)
+    // Continuous Caret & Selection Tracking (Issue 2 & Issue 7)
     document.addEventListener('selectionchange', () => {
       if (window.DocFlow.currentMode === 'edit' && editor && editor.contains(window.getSelection()?.anchorNode)) {
         saveSelection();
+      }
+    });
+
+    // Capture selection on mousedown before focus leaves editor for any button, popover, or container
+    document.addEventListener('mousedown', () => {
+      if (window.DocFlow?.currentMode === 'edit' && editor) {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && editor.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+          saveSelection();
+        }
+      }
+    }, true);
+
+    // Return focus to editor whenever a toolbar/ribbon action button or popover item is clicked
+    document.addEventListener('click', e => {
+      if (window.DocFlow?.currentMode !== 'edit' || !editor) return;
+      const btn = e.target.closest('.fmt-btn, .ribbon-tool-btn, .spacing-opt-item, .bullet-opt-item, .popover-item, .tab-menu-item');
+      if (btn && !e.target.closest('input, textarea, select')) {
+        const isModalTrigger = btn.dataset.opensModal || btn.dataset.modal || btn.dataset.openModal ||
+          btn.matches('#findBtn, #replaceBtn, #renameDocBtn, #pageSetupBtn, #insertLinkBtn, #insertTableBtn, #mdStatsBtn, #mdCheatSheetBtn, #htmlInspectorBtn, #newDocBtn, #insertImgBtn, #codePreviewBtn');
+        if (!isModalTrigger) {
+          setTimeout(() => {
+            if (document.querySelector('.modal-overlay.show')) return;
+            focusEditor();
+          }, 40);
+        }
       }
     });
 

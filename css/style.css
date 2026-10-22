@@ -48,6 +48,10 @@
 html, body {
   height: 100%;
   width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
@@ -56,7 +60,10 @@ body {
   color: var(--text-primary);
   display: flex;
   flex-direction: column;
+  position: fixed;
+  inset: 0;
   overflow: hidden;
+  overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

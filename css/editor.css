@@ -1167,7 +1167,7 @@ li input[type="checkbox"]:checked ~ span {
 }
 
 .df-line-move-handle {
-  position: absolute;
+  position: fixed;
   width: 28px;
   height: 28px;
   background: var(--accent);
@@ -1175,7 +1175,7 @@ li input[type="checkbox"]:checked ~ span {
   border: 2px solid #ffffff;
   border-radius: 50%;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  z-index: 150;
+  z-index: 45;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1191,21 +1191,21 @@ li input[type="checkbox"]:checked ~ span {
 }
 
 .df-line-resize-handle {
-  position: absolute;
+  position: fixed;
   width: 12px;
   height: 12px;
   background: var(--accent);
   border: 2px solid #ffffff;
   border-radius: 50%;
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
-  z-index: 150;
+  z-index: 45;
   pointer-events: auto;
   touch-action: none;
   cursor: ew-resize !important;
 }
 
 .df-line-plus-btn {
-  position: absolute;
+  position: fixed;
   width: 24px;
   height: 24px;
   background: var(--accent);
@@ -1213,13 +1213,13 @@ li input[type="checkbox"]:checked ~ span {
   border: 2px solid #ffffff;
   border-radius: 50%;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-  z-index: 150;
+  z-index: 45;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   font-size: 11px;
-  transition: all 0.15s ease;
+  transition: transform 0.15s ease, background 0.15s ease;
 }
 .df-line-plus-btn:hover {
   transform: scale(1.2);
@@ -1227,14 +1227,17 @@ li input[type="checkbox"]:checked ~ span {
 }
 
 .df-line-popover {
-  position: absolute;
-  z-index: 160;
+  position: fixed;
+  z-index: 48;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: var(--shadow-lg);
   padding: 12px 14px;
   width: 280px;
+  max-height: 80vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   font-family: var(--font-ui);
   animation: dropIn 0.15s ease;
 }

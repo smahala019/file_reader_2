@@ -120,6 +120,9 @@
   function openModal(modalId) {
     const modal = $(modalId);
     if (modal) {
+      if (window.DocFlow?.Editor?.saveSelection && window.DocFlow?.currentMode === 'edit') {
+        window.DocFlow.Editor.saveSelection();
+      }
       lastActiveElement = document.activeElement;
       modal.classList.add('show');
       const firstInput = modal.querySelector('input:not([type="hidden"]), button.primary, .modal-btn');
@@ -131,10 +134,10 @@
     const modal = typeof modalId === 'string' ? $(modalId) : modalId;
     if (modal) {
       modal.classList.remove('show');
-      if (lastActiveElement && typeof lastActiveElement.focus === 'function') {
-        try { lastActiveElement.focus(); } catch (e) { }
-      } else if (window.DocFlow && window.DocFlow.Editor && window.DocFlow.currentMode === 'edit') {
+      if (window.DocFlow && window.DocFlow.Editor && window.DocFlow.currentMode === 'edit') {
         window.DocFlow.Editor.focusEditor();
+      } else if (lastActiveElement && typeof lastActiveElement.focus === 'function') {
+        try { lastActiveElement.focus(); } catch (e) { }
       }
     }
   }
@@ -423,6 +426,17 @@
           }
           window.DocFlow?.updateWordOnlyTools?.(tab);
           window.DocFlow?.applyPersistedLayoutSettings?.(tab);
+
+          // Handle DOM Inspector on file change (Issue 5)
+          const domInspectorModal = $('#htmlDomInspectorModal');
+          if (domInspectorModal && domInspectorModal.classList.contains('show')) {
+            const isHtml = tab.name && (tab.name.toLowerCase().endsWith('.html') || tab.name.toLowerCase().endsWith('.htm'));
+            if (isHtml) {
+              window.DocFlow?.inspectHtmlDom?.();
+            } else {
+              closeModal('#htmlDomInspectorModal');
+            }
+          }
         });
 
         if (!tab.content || tab.content === '<p><br></p>') {
@@ -438,6 +452,10 @@
           }
         }
       } else if (tab.type === 'pdf') {
+        const domInspectorModal = $('#htmlDomInspectorModal');
+        if (domInspectorModal && domInspectorModal.classList.contains('show')) {
+          closeModal('#htmlDomInspectorModal');
+        }
         const sidebar = $('#pptxSlideSidebar');
         if (sidebar) sidebar.style.display = 'none';
         window.DocFlow?.switchRibbonTab?.('pdf');
@@ -777,6 +795,9 @@
   // Floating Popover Positioner (Guarantees popovers float on top of editor with z-index 99999)
   function positionPopover(trigger, popover) {
     if (!trigger || !popover) return;
+    if (window.DocFlow?.Editor?.saveSelection && window.DocFlow?.currentMode === 'edit') {
+      window.DocFlow.Editor.saveSelection();
+    }
     // Issue 5: Ensure only one dropdown menu can be open at a time across all toolbars
     const wasOpen = popover.classList.contains('show');
     closeAllPopovers();
@@ -881,10 +902,10 @@
   // Smooth mouse wheel horizontal scrolling for ribbon panel and ribbon menu bar
   function initRibbonScroll() {
     // Capture-phase wheel handler for all scrollable popovers and menus:
-    // Guarantees vertical mouse wheel scrolling works 100% reliably on all dropdowns
+    // Guarantees vertical mouse wheel scrolling works 100% reliably on all dropdowns & popovers
     document.addEventListener('wheel', e => {
       const popover = e.target?.closest?.(
-        '.spacing-popover, .bullet-popover, .margin-popover, .dropdown-menu, .df-popover, [role="menu"], select'
+        '.spacing-popover, .bullet-popover, .margin-popover, .dropdown-menu, .df-popover, .df-line-popover, .recent-tabs-dropdown, .outline-list, [role="menu"], select'
       );
       if (popover) {
         e.stopPropagation();
@@ -896,11 +917,18 @@
       }
     }, { capture: true, passive: false });
 
+    // Keep the overall application layout strictly fixed at (0,0) without shifting
+    window.addEventListener('scroll', () => {
+      if (window.scrollX !== 0 || window.scrollY !== 0) {
+        window.scrollTo(0, 0);
+      }
+    });
+
     const scrollContainers = document.querySelectorAll('.ribbon-panel, .ribbon-menu-bar');
     scrollContainers.forEach(container => {
       container.addEventListener('wheel', e => {
         // If event originated inside any scrollable dropdown, popover, or select, NEVER intercept!
-        if (e.target && e.target.closest && e.target.closest('.spacing-popover, .dropdown-menu, .bullet-popover, .margin-popover, .df-popover, .color-grid, select, [style*="overflow"], [class*="popover"], [class*="dropdown"]')) {
+        if (e.target && e.target.closest && e.target.closest('.spacing-popover, .dropdown-menu, .bullet-popover, .margin-popover, .df-popover, .df-line-popover, .recent-tabs-dropdown, .color-grid, select, [style*="overflow"], [class*="popover"], [class*="dropdown"]')) {
           return;
         }
         if (e.deltaY !== 0 && container.scrollWidth > container.clientWidth) {

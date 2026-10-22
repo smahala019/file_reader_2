@@ -1,0 +1,9 @@
+
+
+
+
+**Important for ai model **
+Do not merge or remove the functionality of any other documents if they are working properly
+Do not change any other keyboard functionality for any document unless I specifically ask you  to do so.
+Do not break the functionality of Ctrl+A (Select All) in any document, especially Excel
+Do not upload or download any files from Git. Use Git repositories only as references, without modifying or transferring any files. 
