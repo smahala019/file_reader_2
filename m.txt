@@ -1,7 +1,4 @@
-
-
-
-
+when user do cler all then it not close all file from editor that open inside so fix this 
 **Important for ai model **
 Do not merge or remove the functionality of any other documents if they are working properly
 Do not change any other keyboard functionality for any document unless I specifically ask you  to do so.

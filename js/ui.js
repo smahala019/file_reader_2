@@ -126,7 +126,9 @@
       lastActiveElement = document.activeElement;
       modal.classList.add('show');
       const firstInput = modal.querySelector('input:not([type="hidden"]), button.primary, .modal-btn');
-      if (firstInput) setTimeout(() => firstInput.focus(), 80);
+      if (firstInput && firstInput.id !== 'newDocTitleInput') {
+        setTimeout(() => firstInput.focus(), 80);
+      }
     }
   }
 

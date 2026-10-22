@@ -1365,7 +1365,8 @@
         card.setAttribute('role', 'button');
         card.setAttribute('tabindex', '0');
         card.dataset.id = tmpl.id;
-        card.innerHTML = `<i class="fas ${tmpl.icon}"></i><span>${tmpl.name}</span>`;
+        card.title = tmpl.name;
+        card.innerHTML = `<i class="fas ${tmpl.icon}"></i><span title="${tmpl.name}">${tmpl.name}</span>`;
 
         card.addEventListener('click', () => {
           grid.querySelectorAll('.template-card').forEach(c => {

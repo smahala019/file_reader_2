@@ -588,13 +588,36 @@
 
 @media (max-width: 768px) {
   .template-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6px !important;
+  }
+  .template-card {
+    padding: 10px 4px !important;
+    gap: 5px !important;
+    min-width: 0 !important;
+  }
+  .template-card i {
+    font-size: 20px !important;
+  }
+  .template-card span {
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+    display: block !important;
+    line-height: 1.2 !important;
   }
   .modal {
-    padding: 18px;
+    padding: 16px 12px;
     border-radius: 12px;
     width: 95vw;
+  }
+  #newDocModal .modal {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    padding: 14px 10px !important;
   }
   #symbolsGrid {
     grid-template-columns: repeat(6, 1fr) !important;
@@ -603,11 +626,33 @@
 
 @media (max-width: 420px) {
   .template-grid {
-    grid-template-columns: 1fr;
-    gap: 6px;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 5px !important;
+  }
+  .template-card {
+    padding: 8px 3px !important;
+    gap: 4px !important;
+    min-width: 0 !important;
+  }
+  .template-card i {
+    font-size: 18px !important;
+  }
+  .template-card span {
+    font-size: 9px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+    display: block !important;
+    line-height: 1.2 !important;
   }
   .modal {
-    padding: 14px 10px;
+    padding: 14px 8px;
+  }
+  #newDocModal .modal {
+    width: calc(100vw - 12px) !important;
+    max-width: calc(100vw - 12px) !important;
+    padding: 12px 8px !important;
   }
   .modal-header h3 {
     font-size: 14px;

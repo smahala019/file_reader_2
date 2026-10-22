@@ -843,6 +843,14 @@
   font-weight: 500;
   cursor: pointer;
   transition: all var(--transition-fast);
+  min-width: 0;
+}
+
+.format-pill span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .format-pill:hover {
@@ -1945,7 +1953,10 @@ body[data-mode="empty"] .tab-list {
   font-weight: 600;
 }
 
-/* Issue 8: Remove only Line, Column, Word Count, and Char Count for Excel & PPT files */
+/* Issue 8: Remove only Line, Column, Word Count, and Char Count for Empty Home Page and Excel & PPT files */
+body[data-mode="empty"] #wordCountItem,
+body[data-mode="empty"] #charCountItem,
+body[data-mode="empty"] #lineInfoWrap,
 body.is-excel-file #wordCountItem,
 body.is-excel-file #charCountItem,
 body.is-excel-file #lineInfoWrap,
@@ -1991,20 +2002,40 @@ body.is-excel-or-ppt-file #lineInfoWrap {
     display: none !important;
   }
   #modeInfo {
-    display: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    font-size: 9px !important;
+    white-space: nowrap !important;
+  }
+  .statusbar {
+    padding-left: 5px !important;
+    padding-right: 14px !important;
+  }
+  .status-right {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    flex-shrink: 0 !important;
   }
 }
 
 @media (max-width: 480px) {
   .statusbar {
-    padding: 0 6px;
+    padding: 0 14px 0 5px !important;
     font-size: 8.5px;
   }
   .status-credit {
     font-size: 8.5px;
   }
-  #lineInfoWrap {
-    display: none !important;
+  .status-right {
+    gap: 6px !important;
+    flex-shrink: 0 !important;
+  }
+  #modeInfo {
+    display: inline-flex !important;
+    font-size: 8.5px !important;
+    white-space: nowrap !important;
   }
 }
 
@@ -2086,12 +2117,30 @@ html, body {
 @media (max-width: 374px) {
   .topbar {
     height: 38px;
-    padding: 0 4px;
-    gap: 2px;
+    padding: 0 6px;
+    gap: 4px;
+    justify-content: space-between;
   }
-  .topbar-brand span,
-  .topbar-brand .topbar-brand-link,
+  .topbar-brand {
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    flex-shrink: 0 !important;
+  }
+  .topbar-brand i {
+    font-size: 13px !important;
+  }
+  .topbar-brand-link,
   .topbar-brand a,
+  .topbar-brand span {
+    display: inline-flex !important;
+    align-items: center !important;
+    font-size: 12.5px !important;
+    font-weight: 700 !important;
+    color: var(--accent) !important;
+    text-decoration: none !important;
+    white-space: nowrap !important;
+  }
   .tb-btn.text-btn span {
     display: none !important;
   }
@@ -2155,8 +2204,37 @@ html, body {
     font-size: 9px;
   }
   .format-pill-group {
-    grid-template-columns: 1fr !important;
-    gap: 4px;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 4px !important;
+  }
+  .format-pill {
+    padding: 5px 2px !important;
+    font-size: 8.5px !important;
+    gap: 2.5px !important;
+    white-space: nowrap !important;
+    line-height: 1.1 !important;
+  }
+  .format-pill i {
+    font-size: 10px !important;
+  }
+  .template-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 4px !important;
+  }
+  .template-card {
+    padding: 8px 3px !important;
+    gap: 4px !important;
+  }
+  .template-card i {
+    font-size: 18px !important;
+  }
+  .template-card span {
+    font-size: 8.5px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+    display: block !important;
   }
   .drop-zone {
     padding: 16px 8px;
@@ -2174,12 +2252,34 @@ html, body {
     padding: 8px 10px;
   }
   .statusbar {
-    font-size: 7.5px;
+    font-size: 8px;
     height: 22px;
-    padding: 0 4px;
+    padding: 0 12px 0 5px !important;
     gap: 4px;
   }
-  #charCountItem, #modeInfo, #lineInfoWrap, #charCount {
+  #charCountItem, #charCount {
+    display: none !important;
+  }
+  #modeInfo {
+    display: inline-flex !important;
+    align-items: center !important;
+    font-size: 8px !important;
+    white-space: nowrap !important;
+  }
+  .status-right {
+    gap: 5px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    flex-shrink: 0 !important;
+  }
+  #lineInfoWrap {
+    font-size: 8px !important;
+  }
+  #lineInfoWrap i {
+    font-size: 7.5px !important;
+  }
+  #wordCount .word-unit {
     display: none !important;
   }
   .outline-panel {
@@ -2196,12 +2296,30 @@ html, body {
 @media (min-width: 375px) and (max-width: 424px) {
   .topbar {
     height: 40px;
-    padding: 0 6px;
-    gap: 3px;
+    padding: 0 8px;
+    gap: 4px;
+    justify-content: space-between;
   }
-  .topbar-brand span,
-  .topbar-brand .topbar-brand-link,
+  .topbar-brand {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex-shrink: 0 !important;
+  }
+  .topbar-brand i {
+    font-size: 14px !important;
+  }
+  .topbar-brand-link,
   .topbar-brand a,
+  .topbar-brand span {
+    display: inline-flex !important;
+    align-items: center !important;
+    font-size: 13.5px !important;
+    font-weight: 700 !important;
+    color: var(--accent) !important;
+    text-decoration: none !important;
+    white-space: nowrap !important;
+  }
   .tb-btn.text-btn span {
     display: none !important;
   }
@@ -2253,8 +2371,37 @@ html, body {
     padding: 0 4px;
   }
   .format-pill-group {
-    grid-template-columns: 1fr !important;
-    gap: 5px;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 5px !important;
+  }
+  .format-pill {
+    padding: 6px 3px !important;
+    font-size: 9.5px !important;
+    gap: 3px !important;
+    white-space: nowrap !important;
+    line-height: 1.1 !important;
+  }
+  .format-pill i {
+    font-size: 11px !important;
+  }
+  .template-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 5px !important;
+  }
+  .template-card {
+    padding: 9px 4px !important;
+    gap: 4px !important;
+  }
+  .template-card i {
+    font-size: 19px !important;
+  }
+  .template-card span {
+    font-size: 9.5px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+    display: block !important;
   }
   .drop-zone {
     padding: 20px 10px;
@@ -2268,12 +2415,34 @@ html, body {
     padding: 10px 12px;
   }
   .statusbar {
-    font-size: 8px;
+    font-size: 8.5px;
     height: 23px;
-    padding: 0 6px;
+    padding: 0 14px 0 5px !important;
     gap: 5px;
   }
-  #charCountItem, #modeInfo {
+  #charCountItem {
+    display: none !important;
+  }
+  #modeInfo {
+    display: inline-flex !important;
+    align-items: center !important;
+    font-size: 8.5px !important;
+    white-space: nowrap !important;
+  }
+  .status-right {
+    gap: 6px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    flex-shrink: 0 !important;
+  }
+  #lineInfoWrap {
+    font-size: 8.5px !important;
+  }
+  #lineInfoWrap i {
+    font-size: 8px !important;
+  }
+  #wordCount .word-unit {
     display: none !important;
   }
 }
@@ -2282,13 +2451,29 @@ html, body {
 @media (min-width: 425px) and (max-width: 575px) {
   .topbar {
     height: 42px;
-    padding: 0 8px;
-    gap: 4px;
+    padding: 0 10px;
+    gap: 6px;
+    justify-content: space-between;
   }
-  .topbar-brand span,
-  .topbar-brand .topbar-brand-link,
-  .topbar-brand a {
-    display: none !important;
+  .topbar-brand {
+    display: flex !important;
+    align-items: center !important;
+    gap: 7px !important;
+    flex-shrink: 0 !important;
+  }
+  .topbar-brand i {
+    font-size: 15px !important;
+  }
+  .topbar-brand-link,
+  .topbar-brand a,
+  .topbar-brand span {
+    display: inline-flex !important;
+    align-items: center !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: var(--accent) !important;
+    text-decoration: none !important;
+    white-space: nowrap !important;
   }
   .tb-btn.text-btn span {
     display: none !important;
@@ -2338,8 +2523,26 @@ html, body {
     padding: 0 5px;
   }
   .format-pill-group {
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 6px;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6px !important;
+  }
+  .format-pill {
+    padding: 6px 4px !important;
+    font-size: 10px !important;
+    white-space: nowrap !important;
+  }
+  .template-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6px !important;
+  }
+  .template-card {
+    padding: 10px 4px !important;
+  }
+  .template-card span {
+    font-size: 10px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
   .drop-zone {
     padding: 24px 14px;
@@ -2348,10 +2551,23 @@ html, body {
   .statusbar {
     font-size: 8.5px;
     height: 24px;
-    padding: 0 6px;
+    padding: 0 14px 0 5px !important;
     gap: 6px;
   }
   #modeInfo {
+    display: inline-flex !important;
+    align-items: center !important;
+    font-size: 8.5px !important;
+    white-space: nowrap !important;
+  }
+  .status-right {
+    gap: 7px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    flex-shrink: 0 !important;
+  }
+  #wordCount .word-unit {
     display: none !important;
   }
 }
@@ -2388,8 +2604,12 @@ html, body {
     padding: 0 6px;
   }
   .format-pill-group {
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 8px;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+  }
+  .template-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
   }
   .drop-zone {
     max-width: 540px;
@@ -2401,7 +2621,7 @@ html, body {
   .statusbar {
     font-size: 9px;
     height: 24px;
-    padding: 0 8px;
+    padding: 0 5px !important;
   }
 }
 
@@ -3021,10 +3241,19 @@ body.slide-deck-mode .editor-wrap {
     padding: 0 8px !important;
     gap: 6px !important;
   }
-  .topbar-brand span,
+  .topbar-brand {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
   .topbar-brand .topbar-brand-link,
-  .topbar-brand a {
-    display: none !important;
+  .topbar-brand a,
+  .topbar-brand span {
+    display: inline-flex !important;
+    align-items: center !important;
+    font-size: 13.5px !important;
+    font-weight: 700 !important;
+    color: var(--accent) !important;
   }
   .topbar-filename {
     font-size: 12px !important;
@@ -3040,12 +3269,24 @@ body.slide-deck-mode .editor-wrap {
   .tb-divider {
     display: none !important;
   }
-  #lineInfoWrap, #charCountItem {
+  #charCountItem {
     display: none !important;
   }
   .statusbar {
-    padding: 0 8px !important;
-    font-size: 10.5px !important;
+    padding: 0 14px 0 5px !important;
+    font-size: 9px !important;
+  }
+  #modeInfo {
+    display: inline-flex !important;
+    align-items: center !important;
+    white-space: nowrap !important;
+  }
+  .status-right {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 7px !important;
+    flex-shrink: 0 !important;
   }
 }
 

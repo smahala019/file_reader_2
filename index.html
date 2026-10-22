@@ -3796,11 +3796,11 @@
   <!-- Bottom Application Statusbar (Bug 1: Centered credit on desktop and mobile) -->
   <footer class="statusbar" id="statusbar" title="Click or Double click for detailed Document Statistics">
     <div class="status-left">
-      <div class="status-item" id="wordCountItem"><i class="fas fa-font" style="font-size:9px;"></i><span
-          id="wordCount">0 words</span></div>
-      <div class="status-item" id="charCountItem"><i class="fas fa-text-width" style="font-size:9px;"></i><span
+      <div class="status-item" id="wordCountItem" title="Document Words" style="display:none;"><i class="fa-solid fa-w status-w-icon" style="font-size:9px;font-weight:700;"></i><span
+          id="wordCount"><span class="word-num">0</span><span class="word-unit"> words</span></span></div>
+      <div class="status-item" id="charCountItem" style="display:none;"><i class="fas fa-text-width" style="font-size:9px;"></i><span
           id="charCount">0 chars</span></div>
-      <div class="status-item" id="lineInfoWrap"><i class="fas fa-location-dot" style="font-size:9px;"></i><span
+      <div class="status-item" id="lineInfoWrap" style="display:none;"><i class="fas fa-location-dot" style="font-size:9px;"></i><span
           id="lineCount">Ln 1, Col 1</span></div>
     </div>
     <div class="status-center">
@@ -3843,20 +3843,20 @@
           style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-secondary);">Choose
           Extension Format</label>
         <div class="format-pill-group" id="formatPillGroup">
-          <button type="button" class="format-pill active" data-ext="docx"><i class="fas fa-file-word"
-              style="color:#2563eb;"></i> Word (.docx)</button>
-          <button type="button" class="format-pill" data-ext="pdf"><i class="fas fa-file-pdf"
-              style="color:#dc2626;"></i> PDF (.pdf)</button>
-          <button type="button" class="format-pill" data-ext="xlsx"><i class="fas fa-file-excel"
-              style="color:#16a34a;"></i> Excel (.xlsx)</button>
-          <button type="button" class="format-pill" data-ext="pptx"><i class="fas fa-file-powerpoint"
-              style="color:#f97316;"></i> PowerPoint (.pptx)</button>
-          <button type="button" class="format-pill" data-ext="html"><i class="fas fa-file-code"
-              style="color:#e34c26;"></i> HTML (.html)</button>
-          <button type="button" class="format-pill" data-ext="txt"><i class="fas fa-file-lines"
-              style="color:#64748b;"></i> Text (.txt)</button>
-          <button type="button" class="format-pill" data-ext="md"><i class="fab fa-markdown" style="color:#38bdf8;"></i>
-            Markdown (.md)</button>
+          <button type="button" class="format-pill active" data-ext="docx" title="Word (.docx)"><i class="fas fa-file-word"
+              style="color:#2563eb;"></i> <span>Word (.docx)</span></button>
+          <button type="button" class="format-pill" data-ext="pdf" title="PDF (.pdf)"><i class="fas fa-file-pdf"
+              style="color:#dc2626;"></i> <span>PDF (.pdf)</span></button>
+          <button type="button" class="format-pill" data-ext="xlsx" title="Excel (.xlsx)"><i class="fas fa-file-excel"
+              style="color:#16a34a;"></i> <span>Excel (.xlsx)</span></button>
+          <button type="button" class="format-pill" data-ext="pptx" title="PowerPoint (.pptx)"><i class="fas fa-file-powerpoint"
+              style="color:#f97316;"></i> <span>PowerPoint (.pptx)</span></button>
+          <button type="button" class="format-pill" data-ext="html" title="HTML (.html)"><i class="fas fa-file-code"
+              style="color:#e34c26;"></i> <span>HTML (.html)</span></button>
+          <button type="button" class="format-pill" data-ext="txt" title="Text (.txt)"><i class="fas fa-file-lines"
+              style="color:#64748b;"></i> <span>Text (.txt)</span></button>
+          <button type="button" class="format-pill" data-ext="md" title="Markdown (.md)"><i class="fab fa-markdown" style="color:#38bdf8;"></i>
+            <span>Markdown (.md)</span></button>
         </div>
       </div>
 

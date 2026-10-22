@@ -1083,7 +1083,9 @@
     const wordCountEl = $('#wordCount');
     const charCountEl = $('#charCount');
 
-    if (wordCountEl) wordCountEl.textContent = `${words} word${words !== 1 ? 's' : ''}`;
+    if (wordCountEl) {
+      wordCountEl.innerHTML = `<span class="word-num">${words}</span><span class="word-unit"> word${words !== 1 ? 's' : ''}</span>`;
+    }
     if (charCountEl) charCountEl.textContent = `${chars} char${chars !== 1 ? 's' : ''}`;
   }
 
