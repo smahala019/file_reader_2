@@ -779,16 +779,22 @@
       showToast('Removed from recent documents', 'info');
     },
 
-    clearAll() {
-      const list = this.getAll();
-      if (!list.length) {
-        showToast('No recent documents to clear', 'info');
-        return;
-      }
-      if (!confirm('Are you sure you want to clear all recent documents?')) return;
+    clear() {
       localStorage.removeItem(this.KEY);
       this.render();
-      showToast('Recent documents cleared', 'info');
+      try { this.renderDropdown(); } catch (_) { }
+    },
+
+    clearAll() {
+      const box = $('#clearAllWarningBox');
+      if (box) {
+        box.style.display = 'flex';
+        box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } else {
+        window.DocFlow?.UI?.Tabs?.closeAll();
+        this.clear();
+        showToast('All open files closed and recent documents cleared', 'info');
+      }
     },
 
     openDocument(item) {
@@ -1547,6 +1553,7 @@
       window.DocFlow.UI.Tabs.activateTab(tab);
       setTimeout(() => {
         window.DocFlow.Editor?.resetHistoryForTab?.(content);
+        window.DocFlow.Editor?.setCursorToStart?.();
       }, 50);
 
       Recent.add({
@@ -2809,6 +2816,9 @@
       openModal('#gifModal');
       tabBrowse?.click();
       renderGifs(CURATED_GIFS);
+      if (clearSearchBtn) {
+        clearSearchBtn.style.display = searchInput?.value ? 'inline-flex' : 'none';
+      }
     });
 
     searchBtn?.addEventListener('click', () => {
@@ -2819,12 +2829,15 @@
 
     searchInput?.addEventListener('input', () => {
       if (clearSearchBtn) {
-        clearSearchBtn.style.display = searchInput.value ? 'block' : 'none';
+        clearSearchBtn.style.display = searchInput.value ? 'inline-flex' : 'none';
       }
     });
 
     clearSearchBtn?.addEventListener('click', () => {
-      if (searchInput) searchInput.value = '';
+      if (searchInput) {
+        searchInput.value = '';
+        searchInput.focus();
+      }
       if (clearSearchBtn) clearSearchBtn.style.display = 'none';
       renderGifs(CURATED_GIFS);
     });
@@ -2843,7 +2856,7 @@
         const tag = chip.dataset.tag || 'trending';
         if (searchInput) {
           searchInput.value = tag === 'trending' ? '' : tag;
-          if (clearSearchBtn) clearSearchBtn.style.display = searchInput.value ? 'block' : 'none';
+          if (clearSearchBtn) clearSearchBtn.style.display = searchInput.value ? 'inline-flex' : 'none';
         }
         searchNetworkGifs(tag);
       });
@@ -2870,6 +2883,9 @@
     const fullName = `${docTitle}.${ext}`;
     const tab = window.DocFlow.UI.Tabs.create(fullName, content, ext.toUpperCase(), 'edit');
     window.DocFlow.UI.Tabs.activateTab(tab);
+    setTimeout(() => {
+      window.DocFlow.Editor?.setCursorToStart?.();
+    }, 50);
 
     if (ext === 'xlsx') {
       setTimeout(setupExcelInteractions, 50);
@@ -5508,6 +5524,7 @@
     if (!container) return;
 
     $('#editorWrap')?.classList.add('is-excel-mode');
+    editor.classList.add('excel-view-mode');
 
     // Issue 7 & 9: Lock editor canvas so whole sheet cannot be deleted by freeform selection
     editor.contentEditable = 'false';
@@ -10154,9 +10171,25 @@
     $('#editorZoomOutBtn')?.addEventListener('click', () => setEditorZoom(currentZoom - 10));
     $('#editorZoomResetBtn')?.addEventListener('click', () => setEditorZoom(100));
 
-    // Clear All Recent Documents Button
-    $('#clearRecentBtn')?.addEventListener('click', () => {
+    // Clear All Recent Documents & Close All Open Files (Issue 1)
+    $('#clearRecentBtn')?.addEventListener('click', (e) => {
+      e?.stopPropagation();
       Recent.clearAll();
+    });
+
+    $('#clearAllCancelBtn')?.addEventListener('click', (e) => {
+      e?.stopPropagation();
+      const box = $('#clearAllWarningBox');
+      if (box) box.style.display = 'none';
+    });
+
+    $('#clearAllConfirmBtn')?.addEventListener('click', (e) => {
+      e?.stopPropagation();
+      const box = $('#clearAllWarningBox');
+      if (box) box.style.display = 'none';
+      window.DocFlow?.UI?.Tabs?.closeAll();
+      Recent.clear();
+      showToast('All open files closed', 'info');
     });
 
     // 10. Dedicated Excel Ribbon Selection Management (Issue 2 & Issue 5)
@@ -12758,12 +12791,11 @@
 
     recentTabsClearBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (confirm('Clear all recent documents history?')) {
-        Recent.clear();
-        Recent.renderDropdown();
-        Recent.render();
-        showToast('Recent documents cleared', 'info');
-      }
+      window.DocFlow?.UI?.Tabs?.closeAll();
+      Recent.clear();
+      Recent.renderDropdown();
+      Recent.render();
+      showToast('All open files closed and recent documents cleared', 'info');
     });
 
     document.addEventListener('click', (e) => {

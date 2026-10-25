@@ -1,0 +1,13 @@
+1.In Excel, prevent the cell resizer from appearing or activating when the user scrolls up or down. The resizer should only appear when the user clicks on a cell or attempts to resize it. Additionally, the resizer icon should change dynamically based on the resizing direction, whether horizontal or vertical. Currently, two resizer icons are displayed in Excel; fix this so that only one resizer icon is visible at a time. Ensure that all existing Excel functionality remains intact.
+
+currently it also make it resizabel if user scroll the spread sheet without pointing any cell of spread sheet so fix this so resize not work on spreadsheet scroll upward or downward.
+
+
+**Important for ai model **
+Do not merge or remove the functionality of any other documents if they are working properly
+Do not change any other keyboard functionality for any document unless I specifically ask you  to do so.
+Do not break the functionality of Ctrl+A (Select All) in any document, especially Excel
+Do not upload or download any files from Git. Use Git repositories only as references, without modifying or transferring any files. 
+
+
+

@@ -661,7 +661,7 @@
     flex-direction: column-reverse;
     gap: 6px;
   }
-  .modal-btn {
+  .modal-actions .modal-btn {
     width: 100%;
     justify-content: center;
   }
@@ -698,14 +698,326 @@
   border-color: var(--accent);
 }
 
-/* GIF Modal Search & Grid */
+/* GIF Modal Search & Grid (o.txt Issue 5) */
+#gifModal .modal {
+  width: 660px;
+  max-width: 96vw !important;
+  max-height: 90vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 14px 12px !important;
+  box-sizing: border-box !important;
+  overflow-x: hidden !important;
+}
+
+#gifModalClose {
+  width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 6px !important;
+  flex-shrink: 0 !important;
+  font-size: 13px !important;
+}
+
+#gifSearchBarSection,
+.gif-search-bar-section {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-bottom: 10px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+#gifSearchBarSection > div,
+.gif-search-input-wrap {
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  width: auto !important;
+  height: 40px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.gif-search-icon {
+  position: absolute !important;
+  left: 13px !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  margin: auto 0 !important;
+  transform: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 16px !important;
+  height: 16px !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+  color: var(--text-muted, #94a3b8) !important;
+  font-size: 13.5px !important;
+  pointer-events: none !important;
+  z-index: 3 !important;
+}
+
+#gifSearchInput,
+.gif-search-input {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 40px !important;
+  margin: 0 !important;
+  padding: 0 34px 0 36px !important;
+  font-size: 14px !important;
+  line-height: normal !important;
+  background: var(--bg-tertiary, #f8fafc) !important;
+  border: 1.5px solid var(--border, #cbd5e1) !important;
+  border-radius: 20px !important;
+  color: var(--text-primary, #0f172a) !important;
+  outline: none !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+  transition: all 0.2s ease !important;
+}
+
+#gifSearchInput:focus,
+.gif-search-input:focus {
+  border-color: var(--accent, #0284c7) !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.18), inset 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+#gifClearSearchBtn,
+.gif-clear-search-btn {
+  position: absolute !important;
+  right: 8px !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  margin: auto 0 !important;
+  transform: none !important;
+  width: 24px !important;
+  height: 24px !important;
+  display: none;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  color: var(--text-muted, #94a3b8) !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  z-index: 5 !important;
+  border-radius: 50% !important;
+  box-sizing: border-box !important;
+  transition: color 0.15s ease, background-color 0.15s ease !important;
+}
+
+#gifClearSearchBtn:hover,
+.gif-clear-search-btn:hover {
+  color: var(--text-primary, #0f172a) !important;
+  background-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+#gifClearSearchBtn i,
+.gif-clear-search-btn i {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  line-height: 1 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 14px !important;
+  pointer-events: none !important;
+}
+
+#gifClearSearchBtn[style*="inline-flex"],
+#gifClearSearchBtn[style*="flex"],
+.gif-clear-search-btn[style*="inline-flex"],
+.gif-clear-search-btn[style*="flex"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+#gifSearchBtn,
+.gif-search-btn {
+  width: auto !important;
+  max-width: max-content !important;
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+  height: 40px !important;
+  margin: 0 !important;
+  padding: 0 16px !important;
+  min-width: auto !important;
+  border-radius: 20px !important;
+  font-weight: 600 !important;
+  font-size: 13.5px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  box-sizing: border-box !important;
+  touch-action: manipulation !important;
+  cursor: pointer !important;
+}
+
 .gif-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   max-height: 320px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 4px;
+}
+
+@media (max-width: 640px) {
+  #gifModal .modal {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    max-height: 88vh !important;
+    padding: 12px 10px !important;
+    margin: auto !important;
+  }
+  #gifSearchBarSection,
+  .gif-search-bar-section {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 6px !important;
+    margin-bottom: 8px !important;
+    width: 100% !important;
+  }
+  #gifSearchBarSection > div,
+  .gif-search-input-wrap {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    width: auto !important;
+    height: 38px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .gif-search-icon {
+    left: 11px !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    margin: auto 0 !important;
+    transform: none !important;
+    width: 16px !important;
+    height: 16px !important;
+    font-size: 13px !important;
+  }
+  #gifSearchInput,
+  .gif-search-input {
+    height: 38px !important;
+    margin: 0 !important;
+    font-size: 13.5px !important;
+    padding: 0 32px 0 34px !important;
+    border-radius: 19px !important;
+  }
+  #gifClearSearchBtn,
+  .gif-clear-search-btn {
+    right: 7px !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    margin: auto 0 !important;
+    transform: none !important;
+    width: 24px !important;
+    height: 24px !important;
+    font-size: 13.5px !important;
+  }
+  #gifSearchBtn,
+  .gif-search-btn {
+    width: auto !important;
+    max-width: max-content !important;
+    flex: 0 0 auto !important;
+    height: 38px !important;
+    margin: 0 !important;
+    padding: 0 12px !important;
+    min-width: auto !important;
+    font-size: 13px !important;
+    gap: 4px !important;
+    border-radius: 19px !important;
+  }
+  .gif-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    max-height: min(340px, 45vh) !important;
+  }
+}
+
+@media (max-width: 440px) {
+  #gifSearchBarSection,
+  .gif-search-bar-section {
+    gap: 5px !important;
+  }
+  .gif-search-icon {
+    left: 11px !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    margin: auto 0 !important;
+    transform: none !important;
+    font-size: 12.5px !important;
+  }
+  #gifSearchInput,
+  .gif-search-input {
+    height: 38px !important;
+    margin: 0 !important;
+    font-size: 13px !important;
+    padding: 0 30px 0 33px !important;
+    border-radius: 19px !important;
+  }
+  #gifClearSearchBtn,
+  .gif-clear-search-btn {
+    right: 6px !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    margin: auto 0 !important;
+    transform: none !important;
+    font-size: 13px !important;
+  }
+  #gifSearchBtn,
+  .gif-search-btn {
+    width: auto !important;
+    max-width: max-content !important;
+    flex: 0 0 auto !important;
+    height: 38px !important;
+    margin: 0 !important;
+    padding: 0 10px !important;
+    min-width: auto !important;
+    font-size: 12.5px !important;
+    gap: 4px !important;
+    border-radius: 19px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  #gifSearchBtn,
+  .gif-search-btn {
+    width: auto !important;
+    padding: 0 10px !important;
+    min-width: 38px !important;
+  }
+  #gifSearchBtn .gif-search-btn-label,
+  .gif-search-btn .gif-search-btn-label {
+    display: none !important;
+  }
+  .gif-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px !important;
+  }
 }
 
 .gif-card {
@@ -1099,3 +1411,44 @@
   border-color: #d97706 !important;
   color: #b45309 !important;
 }
+
+/* Excalidraw Modal Responsiveness (o.txt Issue 3) */
+#paintModal .modal {
+  width: 840px;
+  max-width: 96vw !important;
+  max-height: 92vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+}
+
+#excalidrawWrapper {
+  width: 100% !important;
+  flex: 1 1 auto !important;
+  height: 440px;
+  min-height: 240px !important;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  background: #ffffff;
+}
+
+@media (max-width: 768px) {
+  #paintModal .modal {
+    width: 98vw !important;
+    max-width: 98vw !important;
+    height: 92vh !important;
+    max-height: 92vh !important;
+    padding: 10px 8px !important;
+  }
+  #excalidrawWrapper {
+    height: auto !important;
+    flex: 1 1 auto !important;
+    min-height: 200px !important;
+  }
+  #quickCanvasWrapper canvas {
+    max-height: 45vh !important;
+  }
+}
+

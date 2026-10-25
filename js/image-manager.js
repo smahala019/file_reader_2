@@ -204,7 +204,9 @@
         if (devSection) devSection.style.display = 'none';
 
         openModal('#imageModal');
-        setTimeout(() => urlInput?.focus(), 80);
+        if (window.innerWidth > 768 && !window.matchMedia('(pointer: coarse)').matches) {
+          setTimeout(() => urlInput?.focus(), 80);
+        }
       });
     }
 
@@ -1103,18 +1105,29 @@
     if (!img || !toolbar) return;
     const rect = img.getBoundingClientRect();
     const toolbarRect = toolbar.getBoundingClientRect();
+    const isMobile = window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches;
 
     let top = rect.top - toolbarRect.height - 8;
-    let left = rect.left + (rect.width / 2) - (toolbarRect.width / 2);
-
-    if (top < 52) top = rect.bottom + 8;
-    if (left < 10) left = 10;
-    if (left + toolbarRect.width > window.innerWidth - 10) {
-      left = window.innerWidth - toolbarRect.width - 10;
+    if (top < 56) top = rect.bottom + 8;
+    // Keep within viewport vertically
+    if (top + toolbarRect.height > window.innerHeight - 8) {
+      top = Math.max(56, window.innerHeight - toolbarRect.height - 8);
     }
 
-    toolbar.style.top = top + 'px';
-    toolbar.style.left = left + 'px';
+    let left = rect.left + (rect.width / 2) - (toolbarRect.width / 2);
+    const minLeft = 8;
+    const maxLeft = Math.max(minLeft, window.innerWidth - toolbarRect.width - 8);
+    left = Math.max(minLeft, Math.min(maxLeft, left));
+
+    if (isMobile) {
+      toolbar.style.position = 'fixed';
+      toolbar.style.top = top + 'px';
+      toolbar.style.left = left + 'px';
+    } else {
+      toolbar.style.position = 'absolute';
+      toolbar.style.top = (top + window.scrollY) + 'px';
+      toolbar.style.left = (left + window.scrollX) + 'px';
+    }
   }
 
   // Interactive Image Cropper (HTML5 Canvas)
@@ -1723,6 +1736,9 @@
       const onResizeEnd = () => {
         document.removeEventListener('mousemove', onResize);
         document.removeEventListener('mouseup', onResizeEnd);
+        document.removeEventListener('touchmove', onResize);
+        document.removeEventListener('touchend', onResizeEnd);
+        document.removeEventListener('touchcancel', onResizeEnd);
         window.DocFlow.Editor?.notifyChange();
       };
 
@@ -1737,6 +1753,20 @@
         document.addEventListener('mousemove', onResize);
         document.addEventListener('mouseup', onResizeEnd);
       });
+
+      handle.addEventListener('touchstart', e => {
+        if (!e.touches || !e.touches[0]) return;
+        e.preventDefault();
+        e.stopPropagation();
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        startW = line.offsetWidth;
+        const isNote = isNoteElement(line);
+        startH = isNote ? line.offsetHeight : parseInt(line.style.borderTopWidth || line.style.height || '2', 10);
+        document.addEventListener('touchmove', onResize, { passive: false });
+        document.addEventListener('touchend', onResizeEnd);
+        document.addEventListener('touchcancel', onResizeEnd);
+      }, { passive: false });
     });
 
     // 3. "+" Button for Line & Note Customization

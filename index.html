@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
   <title>DocFlow — Modern Document Reader & Editor</title>
   <link rel="icon"
     href="https://static.vecteezy.com/system/resources/thumbnails/019/514/650/small_2x/letter-s-logo-design-for-business-and-company-identity-with-luxury-concept-free-vector.jpg"
@@ -3598,6 +3598,29 @@
             <i class="fas fa-trash-can"></i> <span>Clear All</span>
           </button>
         </div>
+
+        <!-- In-Container Warning Confirmation Popup (Issue 1) -->
+        <div class="warning-box clear-all-warning-box" id="clearAllWarningBox" style="display:none;margin:8px 0 12px;animation:dropIn 0.2s ease;">
+          <div class="warning-icon-badge">
+            <i class="fas fa-triangle-exclamation"></i>
+          </div>
+          <div class="warning-content">
+            <div class="warning-header">
+              <h4 class="warning-title" style="margin:0;font-size:13.5px;font-weight:700;color:var(--text-primary);">
+                Are you sure you want to clear all open files?
+              </h4>
+              <span class="warning-tag">Warning</span>
+            </div>
+            <p class="warning-desc">
+              This will close all open files in the editor and clear the recent documents list.
+            </p>
+            <div class="modal-actions" style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px;">
+              <button type="button" class="modal-btn" id="clearAllCancelBtn">Cancel</button>
+              <button type="button" class="modal-btn" id="clearAllConfirmBtn" style="background:#ef4444;color:#fff;border-color:#ef4444;"><i class="fas fa-trash-can"></i> Clear All</button>
+            </div>
+          </div>
+        </div>
+
         <div class="recent-files-list" id="recentFilesList">
           <!-- Dynamically populated -->
         </div>
@@ -4142,18 +4165,17 @@
       </div>
 
       <!-- Search Bar -->
-      <div id="gifSearchBarSection" style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">
-        <div style="flex:1;min-width:190px;position:relative;">
-          <input type="text" id="gifSearchInput"
-            placeholder="Search animated GIFs (e.g. cat, clap, thumbs up, work, celebration)..."
-            style="width:100%;height:38px;padding:0 30px 0 12px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;outline:none;">
-          <button id="gifClearSearchBtn" type="button"
-            style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;"
+      <div id="gifSearchBarSection" class="gif-search-bar-section">
+        <div class="gif-search-input-wrap">
+          <i class="fas fa-magnifying-glass gif-search-icon"></i>
+          <input type="text" id="gifSearchInput" class="gif-search-input"
+            placeholder="Search GIFs..." autocomplete="off">
+          <button id="gifClearSearchBtn" class="gif-clear-search-btn" type="button"
             title="Clear Search"><i class="fas fa-circle-xmark"></i></button>
         </div>
-        <button class="modal-btn primary" id="gifSearchBtn"
-          style="height:38px;padding:0 18px;min-width:85px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;"><i
-            class="fas fa-magnifying-glass"></i> Search</button>
+        <button class="modal-btn primary gif-search-btn" id="gifSearchBtn" type="button">
+          <i class="fas fa-magnifying-glass"></i> <span class="gif-search-btn-label">Search</span>
+        </button>
       </div>
 
       <!-- Category Filter Chips -->

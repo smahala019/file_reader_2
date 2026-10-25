@@ -13,6 +13,7 @@
   inset: 0;
   overflow-y: auto;
   overflow-x: auto;
+  overflow-anchor: none !important;
   display: none;
   padding: 24px 16px 80px;
   z-index: 1;
@@ -203,17 +204,21 @@
   font-size: 0.8em;
 }
 
-.editor-page table,
+.editor-page table:not(.excel-grid-table),
 .doc-table {
   border-collapse: collapse;
+  table-layout: fixed !important;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box !important;
   margin: 16px 0;
   display: table;
-  overflow-x: auto;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
 }
 
-.editor-page td,
-.editor-page th,
+.editor-page td:not(.excel-grid-table td),
+.editor-page th:not(.excel-grid-table th),
 .doc-table td,
 .doc-table th {
   border: 1px solid var(--border, #ccc);
@@ -221,6 +226,10 @@
   text-align: left;
   color: var(--text-primary, #1a1a1a);
   font-size: 14px;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
 }
 
 .editor-page th,
@@ -701,43 +710,52 @@ td.excel-sel-right {
   border-right: 3px solid #15803d !important;
 }
 
-/* Eliminate unnecessary blank space & double scrollbars in Excel mode (Issue 4) */
+/* Eliminate unnecessary blank space & double scrollbars in Excel mode (Issue 4 & Issue 6) */
+#editorWrap:has(.excel-spreadsheet-container),
 .editor-wrap:has(.excel-spreadsheet-container),
+#editorWrap.is-excel-mode,
 .editor-wrap.is-excel-mode {
   padding: 0 !important;
-  overflow: auto !important;
+  padding-bottom: 0 !important;
+  scroll-padding-bottom: 0 !important;
+  overflow: hidden !important;
   height: 100% !important;
   display: flex !important;
   flex-direction: column !important;
 }
 
+#editor:has(.excel-spreadsheet-container),
 .editor-page:has(.excel-spreadsheet-container),
+#editor.excel-view-mode,
 .editor-page.excel-view-mode {
   padding: 0 !important;
-  min-height: auto;
-  margin: 0 auto;
-  width: 100%;
-  height: 100%;
-  max-width: 100%;
+  padding-bottom: 0 !important;
+  min-height: 100% !important;
+  height: 100% !important;
+  margin: 0 auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
   box-shadow: none !important;
   border-radius: 0 !important;
   background: transparent !important;
   border: none !important;
   display: flex !important;
   flex-direction: column !important;
+  overflow: hidden !important;
 }
 
 .excel-spreadsheet-container {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
   background: var(--bg-primary, #ffffff);
-  border: none;
-  border-radius: 0;
-  overflow: hidden;
-  box-shadow: none;
-  flex: 1 1 auto;
+  border: none !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+  flex: 1 1 0% !important;
 }
 
 /* Sticky Formula Bar — Never disappears when scrolling to last row (Issue 4) */
@@ -3815,6 +3833,23 @@ body.is-table-resizing-row * {
   cursor: row-resize !important;
   user-select: none !important;
 }
+body.is-excel-resizing,
+body.is-excel-resizing * {
+  cursor: none !important;
+}
+
+/* Floating Table Corner Handle for Mobile / Desktop */
+.df-table-corner-handle {
+  touch-action: none !important;
+}
+.df-table-corner-handle::before {
+  content: '';
+  position: absolute;
+  top: -14px;
+  left: -14px;
+  right: -14px;
+  bottom: -14px;
+}
 
 /* Floating Table Visual Resizer Guide (Issue 3.b & Issue 1.b) */
 #dfTableResizeGuide {
@@ -4430,4 +4465,56 @@ tr.excel-page-break-bottom td {
   height: 0 !important;
   line-height: 0 !important;
 }
+
+/* Mobile Responsive Floating Toolbars, Note Resizers & Handles (o.txt Issues 2, 3, 4) */
+@media (max-width: 768px) {
+  .df-table-corner-handle {
+    width: 20px !important;
+    height: 20px !important;
+    border-radius: 4px !important;
+    background: var(--accent, #0284c7) !important;
+    border: 2px solid #ffffff !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+  }
+  .df-line-resize-handle {
+    width: 20px !important;
+    height: 20px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+  }
+  .df-img-toolbar {
+    position: fixed !important;
+    max-width: calc(100vw - 16px) !important;
+    width: auto !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    padding: 6px 8px !important;
+    gap: 6px !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: thin !important;
+    box-sizing: border-box !important;
+    z-index: 1000 !important;
+  }
+  .df-img-toolbar .df-img-select {
+    max-width: 95px !important;
+    font-size: 11px !important;
+    padding: 3px 6px !important;
+    flex-shrink: 0 !important;
+  }
+  .df-img-toolbar .df-img-btn {
+    padding: 4px 6px !important;
+    font-size: 11px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+  .df-line-popover {
+    position: fixed !important;
+    max-width: calc(100vw - 20px) !important;
+    width: min(300px, calc(100vw - 20px)) !important;
+    box-sizing: border-box !important;
+    overflow-y: auto !important;
+    max-height: 70vh !important;
+    z-index: 1000 !important;
+  }
+}
+
 

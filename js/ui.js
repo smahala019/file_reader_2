@@ -125,9 +125,13 @@
       }
       lastActiveElement = document.activeElement;
       modal.classList.add('show');
-      const firstInput = modal.querySelector('input:not([type="hidden"]), button.primary, .modal-btn');
-      if (firstInput && firstInput.id !== 'newDocTitleInput') {
-        setTimeout(() => firstInput.focus(), 80);
+      // On mobile / touch screen, never auto-focus inputs to prevent unwanted keyboard opening (Issue 5)
+      const isMobile = window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches;
+      if (!isMobile) {
+        const firstInput = modal.querySelector('input:not([type="hidden"]), button.primary, .modal-btn');
+        if (firstInput && firstInput.id !== 'newDocTitleInput') {
+          setTimeout(() => firstInput.focus(), 80);
+        }
       }
     }
   }
@@ -136,9 +140,10 @@
     const modal = typeof modalId === 'string' ? $(modalId) : modalId;
     if (modal) {
       modal.classList.remove('show');
-      if (window.DocFlow && window.DocFlow.Editor && window.DocFlow.currentMode === 'edit') {
+      const isMobile = window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches;
+      if (!isMobile && window.DocFlow && window.DocFlow.Editor && window.DocFlow.currentMode === 'edit') {
         window.DocFlow.Editor.focusEditor();
-      } else if (lastActiveElement && typeof lastActiveElement.focus === 'function') {
+      } else if (!isMobile && lastActiveElement && typeof lastActiveElement.focus === 'function') {
         try { lastActiveElement.focus(); } catch (e) { }
       }
     }
@@ -192,12 +197,15 @@
     if (closeBtn) closeBtn.onclick = cleanup;
 
     openModal('#inAppPromptModal');
-    setTimeout(() => {
-      if (inputEl) {
-        inputEl.focus();
-        inputEl.select();
-      }
-    }, 80);
+    const isMobile = window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches;
+    if (!isMobile) {
+      setTimeout(() => {
+        if (inputEl) {
+          inputEl.focus();
+          inputEl.select();
+        }
+      }, 80);
+    }
   }
 
   function initModals() {
@@ -599,6 +607,40 @@
       this.render();
       this.save();
       showToast(`Closed "${tab.name}"`, 'info');
+    },
+
+    closeAll() {
+      this.list.forEach(tab => {
+        if (tab.pdfDoc) {
+          try { tab.pdfDoc.destroy(); } catch (e) { }
+          tab.pdfDoc = null;
+        }
+        try { localStorage.removeItem('df-tab-' + tab.id); } catch (e) { }
+      });
+      this.list = [];
+      this.activeId = null;
+      document.body.classList.remove('slide-deck-mode');
+      const sb = $('#pptxSlideSidebar');
+      if (sb) sb.style.display = 'none';
+      const edWrap = document.getElementById('editorWrap');
+      const ed = document.getElementById('editor');
+      if (edWrap) edWrap.classList.remove('is-excel-mode');
+      if (ed) {
+        ed.classList.remove('excel-view-mode', 'is-pptx-deck');
+        ed.innerHTML = '';
+        ed.contentEditable = 'true';
+      }
+      if (window.DocFlow) {
+        window.DocFlow.switchMode('empty');
+        window.DocFlow?.switchRibbonTab?.('home');
+        const fn = $('#fileNameDisplay');
+        if (fn) fn.textContent = 'DocFlow';
+        const ft = $('#fileTypeInfo');
+        if (ft) ft.textContent = 'No file';
+        window.DocFlow.setModified(false);
+      }
+      this.render();
+      this.save();
     },
 
     rename(id) {

@@ -2167,14 +2167,23 @@ html, body {
     padding: 3px 4px;
     gap: 3px;
   }
-  .fmt-btn {
+  .fmt-btn:not(.with-text) {
     width: 24px;
+    min-width: 24px;
     height: 24px;
     font-size: 10px;
   }
   .fmt-btn.with-text {
-    padding: 2px 4px;
+    width: auto !important;
+    min-width: max-content !important;
+    height: 24px;
+    padding: 2px 6px !important;
     font-size: 9.5px;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
   }
   .fmt-select#fontFamily,
   #fontFamily {
@@ -2194,9 +2203,20 @@ html, body {
     height: 28px;
   }
   .tab {
-    max-width: 75px;
-    font-size: 8.5px;
-    padding: 0 3px;
+    min-width: 90px !important;
+    max-width: 175px !important;
+    flex-shrink: 0 !important;
+    font-size: 10px !important;
+    padding: 0 6px !important;
+    gap: 4px !important;
+  }
+  .tab .tab-name {
+    flex: 1 1 auto !important;
+    min-width: 30px !important;
+    max-width: 110px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
   .tab-more-btn, .tab-close {
     width: 14px;
@@ -2346,14 +2366,23 @@ html, body {
     padding: 3px 6px;
     gap: 4px;
   }
-  .fmt-btn {
+  .fmt-btn:not(.with-text) {
     width: 26px;
+    min-width: 26px;
     height: 26px;
     font-size: 11px;
   }
   .fmt-btn.with-text {
-    padding: 2px 5px;
+    width: auto !important;
+    min-width: max-content !important;
+    height: 26px;
+    padding: 2px 7px !important;
     font-size: 10px;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
   }
   .fmt-select#fontFamily,
   #fontFamily {
@@ -2366,9 +2395,20 @@ html, body {
     height: 30px;
   }
   .tab {
-    max-width: 92px;
-    font-size: 9.5px;
-    padding: 0 4px;
+    min-width: 90px !important;
+    max-width: 175px !important;
+    flex-shrink: 0 !important;
+    font-size: 10.5px !important;
+    padding: 0 7px !important;
+    gap: 5px !important;
+  }
+  .tab .tab-name {
+    flex: 1 1 auto !important;
+    min-width: 30px !important;
+    max-width: 115px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
   .format-pill-group {
     grid-template-columns: repeat(3, 1fr) !important;
@@ -2499,14 +2539,23 @@ html, body {
     padding: 4px 6px;
     gap: 5px;
   }
-  .fmt-btn {
+  .fmt-btn:not(.with-text) {
     width: 27px;
+    min-width: 27px;
     height: 27px;
     font-size: 11.5px;
   }
   .fmt-btn.with-text {
-    padding: 3px 6px;
+    width: auto !important;
+    min-width: max-content !important;
+    height: 27px;
+    padding: 3px 8px !important;
     font-size: 10.5px;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
   }
   .fmt-select#fontFamily,
   #fontFamily {
@@ -2518,9 +2567,20 @@ html, body {
     height: 32px;
   }
   .tab {
-    max-width: 115px;
-    font-size: 10px;
-    padding: 0 5px;
+    min-width: 95px !important;
+    max-width: 180px !important;
+    flex-shrink: 0 !important;
+    font-size: 11px !important;
+    padding: 0 8px !important;
+    gap: 6px !important;
+  }
+  .tab .tab-name {
+    flex: 1 1 auto !important;
+    min-width: 30px !important;
+    max-width: 120px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
   .format-pill-group {
     grid-template-columns: repeat(3, 1fr) !important;
@@ -3064,10 +3124,36 @@ body.slide-deck-mode .editor-wrap {
     width: 100% !important;
     height: 48px !important;
   }
-  .editor-wrap {
-    padding: 12px 6px 70px !important;
+  .editor-wrap,
+  #editorWrap {
+    padding: 12px 6px min(55vh, 420px) !important;
+    scroll-padding-bottom: min(48vh, 360px) !important;
     width: 100% !important;
     -webkit-overflow-scrolling: touch !important;
+    overflow-anchor: none !important;
+  }
+  #editorWrap.is-excel-mode,
+  .editor-wrap.is-excel-mode,
+  #editorWrap:has(.excel-spreadsheet-container),
+  .editor-wrap:has(.excel-spreadsheet-container) {
+    padding: 0 !important;
+    padding-bottom: 0 !important;
+    scroll-padding-bottom: 0 !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+  #editor.excel-view-mode,
+  .editor-page.excel-view-mode,
+  #editor:has(.excel-spreadsheet-container),
+  .editor-page:has(.excel-spreadsheet-container) {
+    padding: 0 !important;
+    padding-bottom: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    min-height: 100% !important;
+    overflow: hidden !important;
   }
   body.slide-deck-mode .editor-wrap {
     flex: 1 1 0% !important;
@@ -3192,32 +3278,79 @@ body.slide-deck-mode .editor-wrap {
     -webkit-overflow-scrolling: touch !important;
   }
 
-  /* Responsive Ribbon & Action Buttons (Bug 6) */
-  .fmt-btn.with-text {
-    font-size: 11px !important;
-    padding: 3px 6px !important;
-    white-space: nowrap !important;
-  }
-  .fmt-btn.with-text i {
-    font-size: 11px !important;
-  }
+  /* Responsive Ribbon & Action Buttons (Toolbar Responsiveness - Issue 2) */
+  .ribbon-container,
   .ribbon-bar {
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
   }
+  .ribbon-menu-bar,
   .ribbon-tabs {
     overflow-x: auto !important;
+    flex-wrap: nowrap !important;
     -webkit-overflow-scrolling: touch !important;
+  }
+  .ribbon-tab-btn {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
   }
   .ribbon-panel.active {
     display: flex !important;
+    flex-direction: row !important;
     flex-wrap: nowrap !important;
     overflow-x: auto !important;
+    overflow-y: hidden !important;
     -webkit-overflow-scrolling: touch !important;
-    padding-bottom: 4px !important;
+    padding: 4px 6px !important;
+    gap: 6px !important;
+    align-items: center !important;
   }
   .ribbon-group {
+    display: flex !important;
+    flex-direction: row !important;
     flex-shrink: 0 !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding-right: 8px !important;
+    border-right: 1px solid var(--border) !important;
+  }
+  .ribbon-row {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-shrink: 0 !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 3px !important;
+  }
+  .fmt-btn {
+    flex-shrink: 0 !important;
+  }
+  .fmt-btn:not(.with-text) {
+    min-width: 26px !important;
+    width: auto !important;
+    aspect-ratio: 1 / 1;
+  }
+  .fmt-btn.with-text {
+    width: auto !important;
+    min-width: max-content !important;
+    flex-shrink: 0 !important;
+    font-size: 11px !important;
+    padding: 3px 8px !important;
+    white-space: nowrap !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+  }
+  .fmt-btn.with-text span,
+  .fmt-btn.with-text i {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    display: inline !important;
+  }
+  .bullet-dropdown-wrap {
+    flex-shrink: 0 !important;
+    display: inline-flex !important;
   }
 
   /* Responsive Code Preview Modal (Bugs 1, 2, 6) */
