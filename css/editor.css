@@ -20,6 +20,7 @@
   width: 100%;
   height: 100%;
   -webkit-overflow-scrolling: touch;
+  touch-action: manipulation;
 }
 
 .editor-wrap.visible {
@@ -48,6 +49,7 @@
   overflow-anchor: none !important;
   transition: box-shadow 0.2s ease, width 0.2s ease, padding 0.2s ease;
   flex-shrink: 0;
+  touch-action: manipulation;
 }
 
 .editor-page:focus {
@@ -204,16 +206,30 @@
 }
 
 .editor-page table:not(.excel-grid-table),
-.doc-table {
+.doc-table,
+.pptx-slide-card table:not(.excel-grid-table),
+#editor table:not(.excel-grid-table) {
   border-collapse: collapse;
-  table-layout: fixed !important;
-  width: 100%;
+  table-layout: auto;
+  display: inline-table !important;
+  vertical-align: top;
   max-width: 100%;
   box-sizing: border-box !important;
-  margin: 16px 0;
-  display: table;
+  margin: 8px 12px 8px 0;
   word-break: break-word !important;
   overflow-wrap: break-word !important;
+}
+
+.editor-page table:not(.excel-grid-table)[style*="width: 100%"],
+.editor-page table:not(.excel-grid-table)[style*="width:100%"],
+.doc-table[style*="width: 100%"],
+.doc-table[style*="width:100%"],
+.editor-page table:not(.excel-grid-table):not([style*="width"]),
+.doc-table:not([style*="width"]),
+.pptx-slide-card table:not(.excel-grid-table):not([style*="width"]),
+#editor table:not(.excel-grid-table):not([style*="width"]) {
+  width: 100%;
+  display: table !important;
 }
 
 .editor-page table:not(.excel-grid-table) tr,
@@ -327,50 +343,203 @@
   position: relative;
 }
 
-/* Image Wrap Modes (Bug 4: user adjustment, behind/front of text, inline, float) */
-.editor-page img[data-wrap="inline"],
-.editor-page img[data-align="inline"] {
+/* Flexible Layout System & Text Wrapping Modes across .html, .pptx, .md, .txt, .docx */
+.editor-page img,
+.pptx-slide-card img,
+.slide-content-box img,
+#editor img {
   display: inline-block;
-  float: none;
   vertical-align: middle;
-  margin: 4px 6px;
+  height: auto;
+  border-radius: 4px;
+  margin: 4px 8px 4px 0;
+  clear: none;
+  max-width: 100%;
 }
 
+/* 1. In-Line Alignment & Text Flow (Word-style natural inline flow) */
+.editor-page img[data-wrap="inline"],
+.editor-page img[data-align="inline"],
+.pptx-slide-card img[data-wrap="inline"],
+.slide-content-box img[data-wrap="inline"],
+#editor img[data-wrap="inline"],
+.doc-shape-container[data-wrap="inline"],
+.doc-shape-container[data-align="inline"],
+.doc-chart-container[data-wrap="inline"],
+.doc-chart-container[data-align="inline"],
+.doc-interactive-note[data-wrap="inline"],
+.onenote-sticky-note[data-wrap="inline"] {
+  display: inline-block !important;
+  float: none !important;
+  clear: none !important;
+  vertical-align: middle;
+  margin: 4px 8px 4px 0 !important;
+}
+
+.editor-page table[data-wrap="inline"],
+.editor-page table[data-align="inline"],
+.doc-table[data-wrap="inline"],
+.doc-table[data-align="inline"],
+.pptx-slide-card table[data-wrap="inline"],
+#editor table[data-wrap="inline"] {
+  display: inline-table !important;
+  float: none !important;
+  clear: none !important;
+  vertical-align: top;
+  margin: 6px 12px 6px 0 !important;
+}
+
+/* 2. Text Wrapping: Wrap Left (Square / Text beside on right & below) */
 .editor-page img[data-wrap="left"],
-.editor-page img[data-align="left"] {
-  float: left;
-  margin: 6px 16px 12px 0;
+.editor-page img[data-align="left"],
+.pptx-slide-card img[data-wrap="left"],
+.slide-content-box img[data-wrap="left"],
+#editor img[data-wrap="left"],
+.doc-shape-container[data-wrap="left"],
+.doc-shape-container[data-align="left"],
+.doc-chart-container[data-wrap="left"],
+.doc-chart-container[data-align="left"],
+.doc-interactive-note[data-wrap="left"],
+.onenote-sticky-note[data-wrap="left"] {
+  float: left !important;
+  display: inline-block !important;
+  margin: 6px 16px 10px 0 !important;
+  clear: none !important;
 }
 
+.editor-page table[data-wrap="left"],
+.editor-page table[data-align="left"],
+.doc-table[data-wrap="left"],
+.doc-table[data-align="left"],
+.pptx-slide-card table[data-wrap="left"],
+#editor table[data-wrap="left"] {
+  float: left !important;
+  display: inline-table !important;
+  margin: 6px 18px 10px 0 !important;
+  clear: none !important;
+}
+
+/* 3. Text Wrapping: Wrap Right (Square / Text beside on left & below) */
 .editor-page img[data-wrap="right"],
-.editor-page img[data-align="right"] {
-  float: right;
-  margin: 6px 0 12px 16px;
+.editor-page img[data-align="right"],
+.pptx-slide-card img[data-wrap="right"],
+.slide-content-box img[data-wrap="right"],
+#editor img[data-wrap="right"],
+.doc-shape-container[data-wrap="right"],
+.doc-shape-container[data-align="right"],
+.doc-chart-container[data-wrap="right"],
+.doc-chart-container[data-align="right"],
+.doc-interactive-note[data-wrap="right"],
+.onenote-sticky-note[data-wrap="right"] {
+  float: right !important;
+  display: inline-block !important;
+  margin: 6px 0 10px 16px !important;
+  clear: none !important;
 }
 
+.editor-page table[data-wrap="right"],
+.editor-page table[data-align="right"],
+.doc-table[data-wrap="right"],
+.doc-table[data-align="right"],
+.pptx-slide-card table[data-wrap="right"],
+#editor table[data-wrap="right"] {
+  float: right !important;
+  display: inline-table !important;
+  margin: 6px 0 10px 18px !important;
+  clear: none !important;
+}
+
+/* 4. Text Wrapping: Center / Top and Bottom */
 .editor-page img[data-wrap="center"],
-.editor-page img[data-align="center"] {
-  display: block;
-  float: none;
-  margin-left: auto;
-  margin-right: auto;
+.editor-page img[data-align="center"],
+.pptx-slide-card img[data-wrap="center"],
+.slide-content-box img[data-wrap="center"],
+#editor img[data-wrap="center"],
+.doc-shape-container[data-wrap="center"],
+.doc-shape-container[data-align="center"],
+.doc-chart-container[data-wrap="center"],
+.doc-chart-container[data-align="center"],
+.doc-interactive-note[data-wrap="center"],
+.onenote-sticky-note[data-wrap="center"] {
+  display: block !important;
+  float: none !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  clear: both !important;
 }
 
-.editor-page img[data-wrap="behind"] {
-  position: relative;
-  z-index: 0;
-  opacity: 0.85;
-  float: none;
-  display: inline-block;
-  filter: contrast(0.9);
+.editor-page table[data-wrap="center"],
+.editor-page table[data-align="center"],
+.doc-table[data-wrap="center"],
+.doc-table[data-align="center"],
+.pptx-slide-card table[data-wrap="center"],
+#editor table[data-wrap="center"] {
+  display: table !important;
+  float: none !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  clear: both !important;
 }
 
-.editor-page img[data-wrap="front"] {
-  position: relative;
-  z-index: 10;
-  float: none;
-  display: inline-block;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+/* 5. Text Wrapping: Behind Text */
+.editor-page img[data-wrap="behind"],
+.pptx-slide-card img[data-wrap="behind"],
+.slide-content-box img[data-wrap="behind"],
+#editor img[data-wrap="behind"],
+.doc-shape-container[data-wrap="behind"],
+.doc-chart-container[data-wrap="behind"],
+.doc-interactive-note[data-wrap="behind"],
+.onenote-sticky-note[data-wrap="behind"] {
+  position: relative !important;
+  z-index: 0 !important;
+  opacity: 0.88;
+  float: none !important;
+  clear: none !important;
+  display: inline-block !important;
+  filter: contrast(0.92);
+  pointer-events: auto;
+}
+
+.editor-page table[data-wrap="behind"],
+.doc-table[data-wrap="behind"],
+.pptx-slide-card table[data-wrap="behind"],
+#editor table[data-wrap="behind"] {
+  position: relative !important;
+  z-index: 0 !important;
+  opacity: 0.88;
+  float: none !important;
+  clear: none !important;
+  display: inline-table !important;
+  filter: contrast(0.92);
+}
+
+/* 6. Text Wrapping: In Front of Text */
+.editor-page img[data-wrap="front"],
+.pptx-slide-card img[data-wrap="front"],
+.slide-content-box img[data-wrap="front"],
+#editor img[data-wrap="front"],
+.doc-shape-container[data-wrap="front"],
+.doc-chart-container[data-wrap="front"],
+.doc-interactive-note[data-wrap="front"],
+.onenote-sticky-note[data-wrap="front"] {
+  position: relative !important;
+  z-index: 40 !important;
+  float: none !important;
+  clear: none !important;
+  display: inline-block !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.editor-page table[data-wrap="front"],
+.doc-table[data-wrap="front"],
+.pptx-slide-card table[data-wrap="front"],
+#editor table[data-wrap="front"] {
+  position: relative !important;
+  z-index: 40 !important;
+  float: none !important;
+  clear: none !important;
+  display: inline-table !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
 /* Floating Image Action Bar with Size Dropdown (Bug 4) */
@@ -505,16 +674,21 @@
 }
 
 @media (max-width: 600px) {
-  .editor-wrap {
-    padding: 10px 4px 60px;
+  .editor-wrap:not(.is-excel-mode):not(:has(.excel-spreadsheet-container)):not(.pdf-night-mode) {
+    padding: 14px 10px 60px;
   }
-  .editor-page {
+  .editor-page:not(.is-pptx-deck):not(.excel-view-mode) {
     width: 100%;
-    padding: 24px 14px;
-    border-radius: 0;
-    box-shadow: none;
-    min-height: calc(100vh - 120px);
+    max-width: 100%;
+    padding: var(--editor-page-padding, 24px 16px);
+    margin: 0 auto;
+    border-radius: 4px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(0, 0, 0, 0.08);
+    min-height: max(100%, calc(100vh - 120px)) !important;
+    height: auto !important;
+    background: #ffffff;
     font-size: 14px;
+    box-sizing: border-box !important;
   }
   .editor-page h1 { font-size: 24px; margin: 18px 0 10px; }
   .editor-page h2 { font-size: 20px; margin: 16px 0 8px; }
@@ -1573,12 +1747,14 @@ hr::before,
 
 /* Visual Chart Container Resizing & Dragging (Issue 5) */
 .doc-chart-container {
-  display: block;
+  display: inline-block;
+  vertical-align: middle;
   position: relative;
-  margin: 16px auto;
+  margin: 6px 12px 6px 0;
   user-select: none;
   cursor: pointer;
   box-sizing: border-box;
+  max-width: 100%;
   transition: box-shadow 0.15s ease;
 }
 .doc-chart-container:hover {
@@ -2335,15 +2511,28 @@ body.df-focus-mode .tab-bar:hover {
   width: 96vw !important;
 }
 
-/* 10. Guaranteed Image Center Alignment (Issue 6) */
+/* 10. Guaranteed Center Alignment across elements (Issue 6) */
 .editor-page img[data-wrap="center"],
 .editor-page img[data-align="center"],
-.editor-page .doc-shape-container[data-align="center"] {
+.editor-page .doc-shape-container[data-align="center"],
+.editor-page .doc-shape-container[data-wrap="center"],
+.editor-page .doc-chart-container[data-align="center"],
+.editor-page .doc-chart-container[data-wrap="center"],
+.editor-page table[data-align="center"],
+.editor-page table[data-wrap="center"],
+.doc-table[data-align="center"],
+.doc-table[data-wrap="center"] {
   display: block !important;
   margin-left: auto !important;
   margin-right: auto !important;
   float: none !important;
   clear: both !important;
+}
+.editor-page table[data-align="center"],
+.editor-page table[data-wrap="center"],
+.doc-table[data-align="center"],
+.doc-table[data-wrap="center"] {
+  display: table !important;
 }
 
 /* 11. Slide Boundary Overflow & Draggable Freeform Boxes (Issue 5) */
@@ -4585,6 +4774,52 @@ tr.excel-page-break-bottom td {
     overflow-y: auto !important;
     max-height: 70vh !important;
     z-index: 1000 !important;
+  }
+
+  /* Mobile Page Height & Container Styling Consistency (Issue 1) */
+  .editor-page:not(.is-pptx-deck):not(.excel-view-mode) {
+    min-height: max(100%, calc(100vh - 120px)) !important;
+    height: auto !important;
+    background: #ffffff !important;
+    border-radius: 4px !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(0, 0, 0, 0.08) !important;
+    margin: 0 auto !important;
+    padding: var(--editor-page-padding, 24px 16px) !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Increase width (5px) of line of row or column of table for mobile (Issue 2) */
+  .editor-page td:not(.excel-grid-table td),
+  .editor-page th:not(.excel-grid-table th),
+  .doc-table td,
+  .doc-table th,
+  .pptx-slide-card table:not(.excel-grid-table) td,
+  .pptx-slide-card table:not(.excel-grid-table) th,
+  #editor table:not(.excel-grid-table) td,
+  #editor table:not(.excel-grid-table) th {
+    border-width: 2px !important;
+  }
+  .editor-page table:not(.excel-grid-table),
+  .doc-table:not(.excel-grid-table),
+  .pptx-slide-card table:not(.excel-grid-table),
+  #editor table:not(.excel-grid-table) {
+    border-collapse: collapse !important;
+    border-width: 2px !important;
+  }
+
+  /* Prevent unwanted browser auto-scroll and selection handle acceleration on mobile (e.txt Issues 1 & 2) */
+  .editor-wrap,
+  #editorWrap {
+    scroll-padding: 0 !important;
+    scroll-padding-bottom: 0 !important;
+    scroll-padding-top: 0 !important;
+    scroll-behavior: auto !important;
+    overflow-anchor: none !important;
+  }
+  .editor-page,
+  .editor-page * {
+    scroll-margin: 0 !important;
+    scroll-padding: 0 !important;
   }
 }
 

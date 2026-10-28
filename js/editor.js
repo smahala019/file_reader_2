@@ -952,6 +952,32 @@
 
     // Save snapshot before executing formatting command
     saveSnapshot();
+
+    const selectedImg = window.DocFlow.ImageManager?.getSelectedImage?.();
+    const activeDocTable = window._activeDocTable || (typeof activeTable !== 'undefined' && activeTable) || editor.querySelector('table.df-table-selected');
+    const targetVisualElement = selectedImg || activeDocTable;
+
+    if (targetVisualElement && !targetVisualElement.closest('.excel-spreadsheet-container') && (cmd === 'justifyLeft' || cmd === 'justifyCenter' || cmd === 'justifyRight' || cmd === 'justifyFull')) {
+      const modeMap = {
+        justifyLeft: 'left',
+        justifyCenter: 'center',
+        justifyRight: 'right',
+        justifyFull: 'inline'
+      };
+      const mode = modeMap[cmd] || 'inline';
+      if (window.DocFlow.ImageManager?.setImageWrapMode) {
+        window.DocFlow.ImageManager.setImageWrapMode(targetVisualElement, mode);
+      } else {
+        targetVisualElement.dataset.wrap = mode;
+        targetVisualElement.dataset.align = mode;
+      }
+      updateToolbarState();
+      notifyChange();
+      saveSnapshot();
+      showToast(`Element aligned ${mode}`, 'info');
+      return true;
+    }
+
     if (cmd === 'indent' || cmd === 'outdent') {
       applyIndentOutdent(cmd);
     } else {
@@ -1638,16 +1664,19 @@
         tableResizeGuide.style.boxShadow = isExcel ? '0 0 8px rgba(22,163,74,0.8)' : '0 0 10px rgba(2,132,199,0.9), 0 0 4px #0284c7';
         tableResizeGuide.style.border = 'none';
         tableResizeGuide.style.display = 'block';
+        const isMobileGuide = window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches;
+        const guideThickness = isMobileGuide ? 5 : 2;
+        const guideOffset = isMobileGuide ? 2 : 1;
         if (isCol) {
-          tableResizeGuide.style.width = '2px';
+          tableResizeGuide.style.width = guideThickness + 'px';
           tableResizeGuide.style.height = (rectOrTRect?.height || 20) + 'px';
           tableResizeGuide.style.top = (rectOrTRect?.top || 0) + 'px';
-          tableResizeGuide.style.left = Math.round(clientX - 1) + 'px';
+          tableResizeGuide.style.left = Math.round(clientX - guideOffset) + 'px';
         } else {
-          tableResizeGuide.style.height = '2px';
+          tableResizeGuide.style.height = guideThickness + 'px';
           tableResizeGuide.style.width = (rectOrTRect?.width || 20) + 'px';
           tableResizeGuide.style.left = (rectOrTRect?.left || 0) + 'px';
-          tableResizeGuide.style.top = Math.round(clientY - 1) + 'px';
+          tableResizeGuide.style.top = Math.round(clientY - guideOffset) + 'px';
         }
       }
     };
@@ -1753,6 +1782,7 @@
     // Select and remove tables cleanly (Issue 2)
     const selectTable = (tbl) => {
       if (!tbl || tbl.classList.contains('excel-grid-table') || tbl.closest('.excel-spreadsheet-container')) return;
+      window._activeDocTable = tbl;
       editor.querySelectorAll('table.df-table-selected').forEach(t => {
         if (t !== tbl) t.classList.remove('df-table-selected');
       });
@@ -1948,12 +1978,14 @@
       const isInsideHandle = e.target.closest?.('.df-table-move-handle, .df-table-corner-handle, .df-table-delete-btn');
       if (clickedTable && !clickedTable.closest('.excel-spreadsheet-container')) {
         activeTable = clickedTable;
+        window._activeDocTable = clickedTable;
         positionTableHandles(clickedTable);
         return;
       }
       if (!isInsideHandle) {
         hideTableHandles();
         activeTable = null;
+        window._activeDocTable = null;
         document.querySelectorAll('table.df-table-selected').forEach(t => t.classList.remove('df-table-selected'));
       }
     };
@@ -2027,6 +2059,11 @@
         const newWidth = Math.max(100, Math.round(startTableWidth + dx));
         activeTable.style.setProperty('width', newWidth + 'px', 'important');
         activeTable.style.maxWidth = 'none';
+        if (!activeTable.dataset.wrap || activeTable.dataset.wrap === 'inline') {
+          activeTable.dataset.wrap = 'inline';
+          activeTable.style.setProperty('display', 'inline-table', 'important');
+          activeTable.style.verticalAlign = 'top';
+        }
 
         // Proportional column resizing based on fixed startColWidths
         if (startTableWidth > 0 && startColWidths.length > 0) {
@@ -2064,9 +2101,9 @@
 
         const editor = $('#editor');
         if (!tableGhostIndicator) {
-          tableGhostIndicator = document.createElement('div');
+          tableGhostIndicator = document.createElement('span');
           tableGhostIndicator.id = 'dfTableMoveGhost';
-          tableGhostIndicator.style.cssText = 'height:3px;background:var(--accent,#0284c7);border-radius:2px;margin:8px 0;box-shadow:0 0 6px var(--accent,#0284c7);pointer-events:none;';
+          tableGhostIndicator.style.cssText = 'display:inline-block;width:3px;height:24px;vertical-align:middle;background:var(--accent,#0284c7);border-radius:2px;margin:0 4px;box-shadow:0 0 6px var(--accent,#0284c7);pointer-events:none;';
         }
 
         let range = null;
@@ -3208,6 +3245,90 @@
     });
   }
 
+  // Write After Any Visual Element (Shape, Image, Chart, Table, Note)
+  function writeAfterElement(visualTarget) {
+    if (!visualTarget || !editor) return false;
+    if (window.DocFlow.currentMode !== 'edit') return false;
+
+    // Handle PPTX slide card
+    const slideCard = visualTarget.closest?.('.pptx-slide-card') || editor.querySelector('.pptx-slide-wrapper.active-slide .pptx-slide-card');
+    if (slideCard) {
+      saveSnapshot(true);
+      const vRect = visualTarget.getBoundingClientRect();
+      const sRect = slideCard.getBoundingClientRect();
+      const clickX = Math.max(24, Math.min(sRect.width - 200, Math.round(vRect.left - sRect.left)));
+      const clickY = Math.max(24, Math.min(sRect.height - 50, Math.round(vRect.bottom - sRect.top + 10)));
+
+      const newBox = document.createElement('div');
+      newBox.className = 'slide-content-box pptx-slide-body';
+      newBox.contentEditable = 'true';
+      newBox.style.cssText = `position:absolute;left:${clickX}px;top:${clickY}px;min-width:160px;min-height:36px;outline:none;font-size:18px;color:var(--text-primary);z-index:15;padding:6px 10px;box-sizing:border-box;border:1.5px dashed var(--accent, #0284c7);border-radius:6px;`;
+      newBox.innerHTML = '<p><br></p>';
+      slideCard.appendChild(newBox);
+
+      // Deselect image
+      window.DocFlow.ImageManager?.deselectImage?.();
+
+      const p = newBox.querySelector('p') || newBox;
+      const range = document.createRange();
+      range.setStart(p, 0);
+      range.collapse(true);
+      const sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(range);
+        savedSelection = range.cloneRange();
+      }
+      newBox.focus();
+      focusEditor(true);
+      notifyChange();
+      saveSnapshot(true);
+      showToast('Text box added below element', 'success');
+      return true;
+    }
+
+    // Flow document: DOCX, MD, HTML, TXT
+    saveSnapshot(true);
+    const page = visualTarget.closest?.('.page-sheet, .editor-page') || editor;
+
+    // Find root block containing the visual element or the element itself
+    let blockContainer = visualTarget;
+    while (blockContainer.parentElement && blockContainer.parentElement !== page && blockContainer.parentElement !== editor) {
+      blockContainer = blockContainer.parentElement;
+    }
+
+    let nextEl = blockContainer.nextElementSibling;
+    let targetP = null;
+    if (nextEl && nextEl.tagName === 'P' && (nextEl.textContent.trim() === '' || nextEl.innerHTML === '<br>')) {
+      targetP = nextEl;
+    } else {
+      targetP = document.createElement('p');
+      targetP.innerHTML = '<br>';
+      blockContainer.insertAdjacentElement('afterend', targetP);
+    }
+
+    // Deselect image to hide handles and floating toolbar
+    window.DocFlow.ImageManager?.deselectImage?.();
+
+    const r = document.createRange();
+    r.setStart(targetP, 0);
+    r.collapse(true);
+    const s = window.getSelection();
+    if (s) {
+      s.removeAllRanges();
+      s.addRange(r);
+      savedSelection = r.cloneRange();
+    }
+    editor.focus();
+    try { targetP.focus(); } catch (_) {}
+    focusEditor(true);
+    try { targetP.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (_) {}
+    notifyChange();
+    saveSnapshot(true);
+    showToast('Ready to write after element', 'info');
+    return true;
+  }
+
   // Setup Toolbar Controls
   function initEditor() {
     if (!editor) return;
@@ -3690,37 +3811,81 @@
     setupHrAndQuote();
     setupClickAndType();
 
-    // Click-and-Type Anywhere (Issue 3: DOCX, PPTX, MD, HTML, TXT)
+    // Click-and-Type Anywhere (Double-Click on Laptop / Double-Tap on Mobile)
     function setupClickAndType() {
       if (!editor) return;
+      const wrap = $('#editorWrap') || editor.parentElement;
 
-      editor.addEventListener('dblclick', (e) => {
+      function findVisualTarget(clientX, clientY, target, page) {
+        // 1. Direct target or parent
+        let visual = (target && target.closest?.('.doc-shape-container, .doc-chart-container, .doc-table, table:not(.excel-grid-table), img, .onenote-sticky-note, .doc-interactive-note, .doc-custom-note, hr, .doc-line-separator'));
+        if (visual && editor.contains(visual)) return visual;
+
+        // 2. Element from point
+        if (document.elementFromPoint) {
+          const elAtPoint = document.elementFromPoint(clientX, clientY);
+          visual = elAtPoint?.closest?.('.doc-shape-container, .doc-chart-container, .doc-table, table:not(.excel-grid-table), img, .onenote-sticky-note, .doc-interactive-note, .doc-custom-note, hr, .doc-line-separator');
+          if (visual && editor.contains(visual)) return visual;
+        }
+
+        // 3. Active selected image / shape proximity
+        const selectedImg = window.DocFlow.ImageManager?.getSelectedImage?.();
+        if (selectedImg && editor.contains(selectedImg)) {
+          const sRect = selectedImg.getBoundingClientRect();
+          if (clientX >= sRect.left - 40 && clientX <= sRect.right + 250 && clientY >= sRect.top - 60 && clientY <= sRect.bottom + 60) {
+            return selectedImg;
+          }
+        }
+
+        // 4. Proximity check: Tapped to the right of or just below a visual element
+        const container = page || editor;
+        const allVisuals = Array.from(container.querySelectorAll('.doc-shape-container, .doc-chart-container, .doc-table, table:not(.excel-grid-table), img, .onenote-sticky-note, .doc-interactive-note, .doc-custom-note'));
+        for (let i = allVisuals.length - 1; i >= 0; i--) {
+          const v = allVisuals[i];
+          const r = v.getBoundingClientRect();
+          const isToRight = (clientY >= r.top - 12 && clientY <= r.bottom + 12 && clientX >= r.left - 10);
+          const isJustBelow = (clientY >= r.bottom && clientY <= r.bottom + 70 && clientX >= r.left - 20 && clientX <= r.right + 200);
+          if (isToRight || isJustBelow) {
+            return v;
+          }
+        }
+        return null;
+      }
+
+      function performClickAndType(clientX, clientY, target, isTouchEvent = false) {
         if (window.DocFlow.currentMode !== 'edit') return;
         if (document.body.classList.contains('reading-mode')) return;
 
         // Do not trigger in Excel spreadsheet mode or on UI controls / handles
-        if (document.querySelector('.excel-spreadsheet-container') || e.target.closest('.excel-spreadsheet-container, .excel-grid-table')) return;
-        if (e.target.closest('.df-resize-handle, .df-img-toolbar, .df-img-move-handle, .df-line-move-handle, .df-line-resize-handle, .df-line-plus-btn, .df-line-popover, .df-table-move-handle, .df-table-corner-handle, .quick-tools, .context-menu')) return;
+        if (document.querySelector('.excel-spreadsheet-container') || (target && target.closest('.excel-spreadsheet-container, .excel-grid-table'))) return;
+        if (target && target.closest('.quick-tools, .context-menu, .pptx-slide-sidebar, .tab-bar, .ribbon-container')) return;
 
         // 1. PowerPoint Presentation Slides (PPTX / PPT)
-        const slideCard = e.target.closest('.pptx-slide-card');
-        if (slideCard) {
-          // If double-clicking an editable element, card, rectangle, nested card, text box, paragraph, heading, etc.
-          const editableTarget = e.target.closest(
+        const slideCard = (target && target.closest('.pptx-slide-card')) || editor.querySelector('.pptx-slide-wrapper.active-slide .pptx-slide-card') || editor.querySelector('.pptx-slide-card');
+        if (slideCard && (document.body.classList.contains('slide-deck-mode') || editor.querySelector('.pptx-slide-card'))) {
+          // If double-clicking/tapping a visual element on the slide
+          const visualOnSlide = findVisualTarget(clientX, clientY, target, slideCard);
+          if (visualOnSlide && !visualOnSlide.closest('.slide-quick-action-bar')) {
+            writeAfterElement(visualOnSlide);
+            return;
+          }
+
+          // If double-clicking/tapping an editable element, card, rectangle, text box, paragraph, heading, etc.
+          const editableTarget = target && target.closest(
             '.slide-nested-card, .slide-freeform-rect, .slide-title-box, .slide-content-box, .pptx-slide-title, .pptx-slide-body, p, h1, h2, h3, h4, h5, h6, li, blockquote'
           );
 
           if (editableTarget && editableTarget !== slideCard && !editableTarget.closest('.slide-quick-action-bar')) {
             editableTarget.contentEditable = 'true';
-            editableTarget.focus();
+            try { editableTarget.focus(); } catch (_) {}
 
             const sel = window.getSelection();
             if (sel) {
               let range = null;
               if (document.caretRangeFromPoint) {
-                range = document.caretRangeFromPoint(e.clientX, e.clientY);
+                range = document.caretRangeFromPoint(clientX, clientY);
               } else if (document.caretPositionFromPoint) {
-                const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+                const pos = document.caretPositionFromPoint(clientX, clientY);
                 if (pos) {
                   range = document.createRange();
                   range.setStart(pos.offsetNode, pos.offset);
@@ -3734,16 +3899,18 @@
               }
               sel.removeAllRanges();
               sel.addRange(range);
+              savedSelection = range.cloneRange();
             }
+            focusEditor(true);
             notifyChange();
             return;
           }
 
-          // Double clicked on blank slide card background
+          // Double-clicked on blank slide card background
           const existingBox = slideCard.querySelector('.slide-content-box, .pptx-slide-body, .slide-title-box, p[contenteditable="true"]');
           if (existingBox) {
             existingBox.contentEditable = 'true';
-            existingBox.focus();
+            try { existingBox.focus(); } catch (_) {}
             const sel = window.getSelection();
             if (sel) {
               const range = document.createRange();
@@ -3751,14 +3918,16 @@
               range.collapse(false);
               sel.removeAllRanges();
               sel.addRange(range);
+              savedSelection = range.cloneRange();
             }
+            focusEditor(true);
             notifyChange();
             return;
           }
 
           const sRect = slideCard.getBoundingClientRect();
-          const clickX = Math.max(24, Math.min(sRect.width - 200, Math.round(e.clientX - sRect.left)));
-          const clickY = Math.max(24, Math.min(sRect.height - 50, Math.round(e.clientY - sRect.top)));
+          const clickX = Math.max(24, Math.min(sRect.width - 200, Math.round(clientX - sRect.left)));
+          const clickY = Math.max(24, Math.min(sRect.height - 50, Math.round(clientY - sRect.top)));
 
           saveSnapshot(true);
           const newBox = document.createElement('div');
@@ -3773,93 +3942,55 @@
           range.setStart(p, 0);
           range.collapse(true);
           const sel = window.getSelection();
-          sel.removeAllRanges();
-          sel.addRange(range);
+          if (sel) {
+            sel.removeAllRanges();
+            sel.addRange(range);
+            savedSelection = range.cloneRange();
+          }
           newBox.focus();
+          focusEditor(true);
           notifyChange();
           saveSnapshot(true);
           return;
         }
 
         // 2. Flow Documents: DOCX, MD, HTML, TXT (Pages or continuous flow)
-        const page = e.target.closest('.page-sheet, .editor-page') || editor;
-        const blocks = Array.from(page.querySelectorAll(':scope > p, :scope > div:not(.doc-page-break):not(.page-header):not(.page-footer), :scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6, :scope > ul, :scope > ol, :scope > table, :scope > blockquote, :scope > section'));
-
+        const page = (target && target.closest('.page-sheet, .editor-page')) || editor;
         const pRect = page.getBoundingClientRect();
-        const padLeft = parseFloat(getComputedStyle(page).paddingLeft) || 36;
-        const rawIndent = e.clientX - pRect.left - padLeft;
-        const indent = Math.max(0, Math.min(Math.round(pRect.width - padLeft - 100), Math.round(rawIndent)));
+        const padLeft = parseFloat(getComputedStyle(page).paddingLeft) || 24;
+        const padTop = parseFloat(getComputedStyle(page).paddingTop) || 24;
+        const rawIndent = clientX - pRect.left - padLeft;
+        const maxIndent = isMobileView() ? Math.max(0, pRect.width - padLeft - 90) : (pRect.width - padLeft - 60);
+        const indent = Math.max(0, Math.min(Math.round(maxIndent), Math.round(rawIndent)));
 
-        if (blocks.length > 0) {
-          const lastBlock = blocks[blocks.length - 1];
-          const lastRect = lastBlock.getBoundingClientRect();
+        // Feature: Write After Any Shape, Image, Chart, Table, or Visual Element (User Request)
+        const visualTarget = findVisualTarget(clientX, clientY, target, page);
+        if (visualTarget && editor.contains(visualTarget)) {
+          writeAfterElement(visualTarget);
+          return;
+        }
 
-          // If double-clicked in empty space below the last block on this page/editor
-          if (e.clientY > lastRect.bottom + 8) {
-            saveSnapshot(true);
-            const gap = e.clientY - lastRect.bottom;
-            const linesCount = Math.max(1, Math.min(30, Math.floor(gap / 26)));
+        // All direct content blocks in the page
+        const blocks = Array.from(page.querySelectorAll(':scope > p, :scope > div:not(.doc-page-break):not(.page-header):not(.page-footer), :scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6, :scope > ul, :scope > ol, :scope > table, :scope > blockquote, :scope > section, :scope > img, :scope > .doc-shape-container, :scope > .doc-chart-container'));
 
-            for (let i = 0; i < linesCount - 1; i++) {
-              const emptyP = document.createElement('p');
-              emptyP.innerHTML = '<br>';
-              page.appendChild(emptyP);
-            }
-
-            const targetP = document.createElement('p');
-            targetP.innerHTML = '<br>';
-            if (indent > 30) {
-              targetP.style.marginLeft = indent + 'px';
-            }
-            page.appendChild(targetP);
-
-            const r = document.createRange();
-            r.setStart(targetP, 0);
-            r.collapse(true);
-            const s = window.getSelection();
-            s.removeAllRanges();
-            s.addRange(r);
-            targetP.focus();
-            notifyChange();
-            saveSnapshot(true);
-            return;
-          }
-
-          // If double-clicked in empty space to the right of an existing block
-          const targetBlock = blocks.find(b => {
-            const br = b.getBoundingClientRect();
-            return e.clientY >= br.top && e.clientY <= br.bottom;
-          });
-
-          if (targetBlock) {
-            const tRect = targetBlock.getBoundingClientRect();
-            if (e.clientX > tRect.left + (targetBlock.scrollWidth || 0) + 16) {
-              saveSnapshot(true);
-              const targetP = document.createElement('p');
-              targetP.innerHTML = '<br>';
-              if (indent > 30) {
-                targetP.style.marginLeft = indent + 'px';
-              }
-              targetBlock.insertAdjacentElement('afterend', targetP);
-
-              const r = document.createRange();
-              r.setStart(targetP, 0);
-              r.collapse(true);
-              const s = window.getSelection();
-              s.removeAllRanges();
-              s.addRange(r);
-              targetP.focus();
-              notifyChange();
-              saveSnapshot(true);
-              return;
-            }
-          }
-        } else {
-          // Page/editor is completely blank
+        // Feature: Write anywhere on EMPTY page (User Request: "no matter page is empty or not")
+        const isEmptyPage = blocks.length === 0 || (page.textContent.trim() === '' && !page.querySelector('img, .doc-shape-container, .doc-chart-container, table'));
+        if (isEmptyPage) {
           saveSnapshot(true);
+          page.innerHTML = '';
+          const fromY = pRect.top + padTop;
+          const gap = Math.max(0, clientY - fromY);
+          const linesCount = Math.max(1, Math.min(30, Math.floor(gap / 26)));
+
+          for (let i = 0; i < linesCount - 1; i++) {
+            const emptyP = document.createElement('p');
+            emptyP.innerHTML = '<br>';
+            page.appendChild(emptyP);
+          }
+
           const targetP = document.createElement('p');
           targetP.innerHTML = '<br>';
-          if (indent > 30) {
+          if (indent > 24) {
             targetP.style.marginLeft = indent + 'px';
           }
           page.appendChild(targetP);
@@ -3868,33 +3999,183 @@
           r.setStart(targetP, 0);
           r.collapse(true);
           const s = window.getSelection();
-          s.removeAllRanges();
-          s.addRange(r);
-          targetP.focus();
+          if (s) {
+            s.removeAllRanges();
+            s.addRange(r);
+            savedSelection = r.cloneRange();
+          }
+          editor.focus();
+          try { targetP.focus(); } catch (_) {}
+          focusEditor(true);
           notifyChange();
           saveSnapshot(true);
           return;
         }
 
-        // Fallback: place caret using browser caretFromPoint
-        let range = null;
-        if (document.caretRangeFromPoint) {
-          range = document.caretRangeFromPoint(e.clientX, e.clientY);
-        } else if (document.caretPositionFromPoint) {
-          const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
-          if (pos) {
-            range = document.createRange();
-            range.setStart(pos.offsetNode, pos.offset);
-            range.collapse(true);
+        // Check if double click/tap is below the last block on this page/editor
+        let isBelowLastBlock = false;
+        let lastRect = null;
+        if (blocks.length > 0) {
+          const lastBlock = blocks[blocks.length - 1];
+          lastRect = lastBlock.getBoundingClientRect();
+          if (clientY > lastRect.bottom + 6) {
+            isBelowLastBlock = true;
           }
         }
-        if (range && editor.contains(range.commonAncestorContainer)) {
+
+        if (isBelowLastBlock) {
+          saveSnapshot(true);
+          const fromY = lastRect ? lastRect.bottom : pRect.top + padTop;
+          const gap = Math.max(0, clientY - fromY);
+          const linesCount = Math.max(1, Math.min(30, Math.floor(gap / 26)));
+
+          for (let i = 0; i < linesCount - 1; i++) {
+            const emptyP = document.createElement('p');
+            emptyP.innerHTML = '<br>';
+            page.appendChild(emptyP);
+          }
+
+          const targetP = document.createElement('p');
+          targetP.innerHTML = '<br>';
+          if (indent > 24) {
+            targetP.style.marginLeft = indent + 'px';
+          }
+          page.appendChild(targetP);
+
+          const r = document.createRange();
+          r.setStart(targetP, 0);
+          r.collapse(true);
           const s = window.getSelection();
-          s.removeAllRanges();
-          s.addRange(range);
-          focusEditor();
+          if (s) {
+            s.removeAllRanges();
+            s.addRange(r);
+            savedSelection = r.cloneRange();
+          }
+          editor.focus();
+          try { targetP.focus(); } catch (_) {}
+          focusEditor(true);
+          try { targetP.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (_) {}
+          notifyChange();
+          saveSnapshot(true);
+          return;
         }
-      });
+
+        // Try caretRangeFromPoint to place caret inside or next to existing text
+        let directRange = null;
+        if (document.caretRangeFromPoint) {
+          directRange = document.caretRangeFromPoint(clientX, clientY);
+        } else if (document.caretPositionFromPoint) {
+          const pos = document.caretPositionFromPoint(clientX, clientY);
+          if (pos) {
+            directRange = document.createRange();
+            directRange.setStart(pos.offsetNode, pos.offset);
+            directRange.collapse(true);
+          }
+        }
+
+        if (directRange && page.contains(directRange.commonAncestorContainer)) {
+          const s = window.getSelection();
+          if (s) {
+            s.removeAllRanges();
+            s.addRange(directRange);
+            savedSelection = directRange.cloneRange();
+          }
+          editor.focus();
+          focusEditor(true);
+          notifyChange();
+          return;
+        }
+
+        // Fallback: create paragraph at end of page
+        saveSnapshot(true);
+        const fallbackP = document.createElement('p');
+        fallbackP.innerHTML = '<br>';
+        if (indent > 24) {
+          fallbackP.style.marginLeft = indent + 'px';
+        }
+        page.appendChild(fallbackP);
+        const r = document.createRange();
+        r.setStart(fallbackP, 0);
+        r.collapse(true);
+        const s = window.getSelection();
+        if (s) {
+          s.removeAllRanges();
+          s.addRange(r);
+          savedSelection = r.cloneRange();
+        }
+        editor.focus();
+        try { fallbackP.focus(); } catch (_) {}
+        focusEditor(true);
+        notifyChange();
+        saveSnapshot(true);
+      }
+
+      // Laptop / Mouse Double-Click listener
+      const onDblClick = (e) => {
+        if (e.target && e.target.closest('.excel-spreadsheet-container, .excel-grid-table, .quick-tools, .ribbon-container, .topbar, .tab-bar')) return;
+        e.preventDefault();
+        performClickAndType(e.clientX, e.clientY, e.target, false);
+      };
+      if (wrap) wrap.addEventListener('dblclick', onDblClick);
+      else editor.addEventListener('dblclick', onDblClick);
+
+      // Mobile / Touchscreen Double-Tap listener (Robust gesture detection on capacitive touchscreens)
+      let lastTapTime = 0;
+      let lastTapX = 0;
+      let lastTapY = 0;
+      let touchStartX = 0;
+      let touchStartY = 0;
+      let touchMoved = false;
+
+      document.addEventListener('touchstart', (e) => {
+        if (!e.touches || !e.touches[0]) return;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchMoved = false;
+      }, { passive: true });
+
+      document.addEventListener('touchmove', (e) => {
+        if (!e.touches || !e.touches[0]) return;
+        const dist = Math.hypot(e.touches[0].clientX - touchStartX, e.touches[0].clientY - touchStartY);
+        if (dist > 28) {
+          touchMoved = true;
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchend', (e) => {
+        if (!e.changedTouches || !e.changedTouches[0]) return;
+        if (touchMoved) {
+          lastTapTime = 0;
+          return; // Ignore intentional swipe / scroll gestures
+        }
+        const touch = e.changedTouches[0];
+        const target = e.target;
+
+        // Excel mode protected
+        if (document.querySelector('.excel-spreadsheet-container') || (target && target.closest('.excel-spreadsheet-container, .excel-grid-table'))) return;
+
+        // UI controls protected (ribbon, tabs, topbar, modals)
+        if (target && target.closest('.quick-tools, .ribbon-container, .topbar, .tab-bar, .context-menu, .modal, .df-dialog')) return;
+
+        // Verify touch occurred inside editorWrap or editor or active image handles
+        const isInsideEditor = wrap && (wrap.contains(target) || target === wrap);
+        const isVisualHandle = target && target.closest('.df-resize-handle, .df-img-toolbar, .df-img-move-handle');
+        if (!isInsideEditor && !isVisualHandle) return;
+
+        const now = Date.now();
+        const timeDiff = now - lastTapTime;
+        const dist = Math.hypot(touch.clientX - lastTapX, touch.clientY - lastTapY);
+
+        if (timeDiff >= 30 && timeDiff <= 650 && dist <= 75) {
+          // Double-tap successfully detected on mobile!
+          lastTapTime = 0;
+          performClickAndType(touch.clientX, touch.clientY, target, true);
+        } else {
+          lastTapTime = now;
+          lastTapX = touch.clientX;
+          lastTapY = touch.clientY;
+        }
+      }, { passive: true });
     }
 
     // Universal focus protection: prevent clicking ribbon/toolbar buttons/popovers/steppers from stealing editor focus on desktop, while preventing auto keyboard opening on mobile (Issue 2)
@@ -4364,45 +4645,213 @@
       }, 100);
     });
 
-    // Mobile Virtual Keyboard Scroll Clearance (Monaco automaticLayout behavior - Issue 4)
-    initMobileKeyboardClearance();
+    // Mobile Smooth Text Selection Autoscroll & Unwanted Auto-Scroll Prevention (e.txt Issues 1 & 2)
+    initMobileScrollControl();
   }
 
-  // Mobile Virtual Keyboard Scroll Clearance & Caret Visibility (Issue 3)
-  function initMobileKeyboardClearance() {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
-
+  // Mobile Smooth Text Selection Autoscroll & Unwanted Auto-Scroll Prevention (e.txt Issues 1 & 2)
+  function initMobileScrollControl() {
     const editorWrap = document.getElementById('editorWrap');
     if (!editorWrap || !editor) return;
 
-    const adjustForKeyboard = () => {
-      if (!isMobileView()) return;
+    let userManualScrollTop = editorWrap.scrollTop;
+    let isManualTouchScrolling = false;
+    let isApplyingControlledScroll = false;
+    let touchStartY = 0;
+    let touchStartX = 0;
+    let lockAutoScrollUntil = 0;
+    let isSelectingOrDraggingSelection = false;
+    let selectionEdgeScrollRaf = null;
+    let lastControlledScrollTop = editorWrap.scrollTop;
 
-      const vv = window.visualViewport;
-      const keyboardHeight = Math.max(0, window.innerHeight - vv.height);
+    // Track touch interactions
+    document.addEventListener('touchstart', e => {
+      if (!isMobileView() || !e.touches || !e.touches[0]) return;
+      const t = e.touches[0];
+      touchStartY = t.clientY;
+      touchStartX = t.clientX;
+      isManualTouchScrolling = false;
 
-      if (keyboardHeight > 80) {
-        const bottomPadding = Math.max(keyboardHeight + 60, Math.round(window.innerHeight * 0.4));
-        editorWrap.style.setProperty('padding-bottom', `${bottomPadding}px`, 'important');
-        editorWrap.style.setProperty('scroll-padding-bottom', `${keyboardHeight + 40}px`, 'important');
+      const sel = window.getSelection();
+      const hasRange = sel && sel.rangeCount > 0 && !sel.isCollapsed && editor.contains(sel.anchorNode);
 
-        // Only adjust scroll if active cursor is obscured beneath the virtual keyboard and user is not selecting text
-        const sel = window.getSelection();
-        if (sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode)) {
-          const range = sel.getRangeAt(0);
-          const rect = range.getBoundingClientRect();
-          if (rect.height > 0 && rect.bottom > vv.height - 24) {
-            const overflow = rect.bottom - (vv.height - 36);
-            editorWrap.scrollTop += overflow;
-          }
-        }
+      if (hasRange) {
+        isSelectingOrDraggingSelection = true;
       } else {
-        editorWrap.style.removeProperty('padding-bottom');
-        editorWrap.style.removeProperty('scroll-padding-bottom');
+        isSelectingOrDraggingSelection = false;
+        // User touched to tap/place cursor or begin potential manual scroll
+        userManualScrollTop = editorWrap.scrollTop;
+        lastControlledScrollTop = editorWrap.scrollTop;
+        // Lock unwanted automatic scroll jumps for 700ms on tap
+        lockAutoScrollUntil = Date.now() + 700;
       }
+    }, { capture: true, passive: true });
+
+    document.addEventListener('touchmove', e => {
+      if (!isMobileView() || !e.touches || !e.touches[0]) return;
+      const t = e.touches[0];
+      const dy = t.clientY - touchStartY;
+      const dx = t.clientX - touchStartX;
+
+      const sel = window.getSelection();
+      const hasRange = sel && sel.rangeCount > 0 && !sel.isCollapsed && editor.contains(sel.anchorNode);
+
+      if (hasRange) {
+        isSelectingOrDraggingSelection = true;
+      }
+
+      // If user drags finger > 8px vertically and is NOT dragging a text selection, this is an intentional manual scroll!
+      if (!isSelectingOrDraggingSelection && Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx)) {
+        isManualTouchScrolling = true;
+        lockAutoScrollUntil = 0; // Immediately allow manual scrolling
+        userManualScrollTop = editorWrap.scrollTop;
+      }
+
+      // Issue 1: Handle text selection edge dragging (slow, gentle, accurate autoscroll)
+      if (isSelectingOrDraggingSelection) {
+        const topEdge = 70;
+        const bottomEdge = window.innerHeight - 70;
+        if (t.clientY < topEdge) {
+          startGentleSelectionEdgeScroll(-1);
+        } else if (t.clientY > bottomEdge) {
+          startGentleSelectionEdgeScroll(1);
+        } else {
+          stopGentleSelectionEdgeScroll();
+        }
+      }
+    }, { capture: true, passive: true });
+
+    const onTouchEnd = () => {
+      if (!isMobileView()) return;
+      stopGentleSelectionEdgeScroll();
+
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+        isSelectingOrDraggingSelection = false;
+      }
+
+      // Allow inertia scroll to complete before clearing manual scroll flag
+      setTimeout(() => {
+        isManualTouchScrolling = false;
+        if (!isSelectingOrDraggingSelection && Date.now() >= lockAutoScrollUntil) {
+          userManualScrollTop = editorWrap.scrollTop;
+          lastControlledScrollTop = editorWrap.scrollTop;
+        }
+      }, 150);
     };
 
-    window.visualViewport.addEventListener('resize', adjustForKeyboard);
+    document.addEventListener('touchend', onTouchEnd, { capture: true, passive: true });
+    document.addEventListener('touchcancel', onTouchEnd, { capture: true, passive: true });
+
+    // Track text selection state changes
+    document.addEventListener('selectionchange', () => {
+      if (!isMobileView()) return;
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && !sel.isCollapsed && editor.contains(sel.anchorNode)) {
+        isSelectingOrDraggingSelection = true;
+      } else {
+        isSelectingOrDraggingSelection = false;
+        stopGentleSelectionEdgeScroll();
+        // Cursor placement / collapsed selection change: preserve position
+        if (!isManualTouchScrolling) {
+          lockAutoScrollUntil = Date.now() + 600;
+        }
+      }
+    });
+
+    // Gentle edge scroll loop during selection handle dragging (Issue 1)
+    function startGentleSelectionEdgeScroll(dir) {
+      if (selectionEdgeScrollRaf) return;
+      const step = () => {
+        if (!isSelectingOrDraggingSelection) {
+          stopGentleSelectionEdgeScroll();
+          return;
+        }
+        isApplyingControlledScroll = true;
+        // Gentle, slow step of 3px per frame (smooth and accurate)
+        editorWrap.scrollTop += dir * 3;
+        lastControlledScrollTop = editorWrap.scrollTop;
+        userManualScrollTop = editorWrap.scrollTop;
+        isApplyingControlledScroll = false;
+        selectionEdgeScrollRaf = requestAnimationFrame(step);
+      };
+      selectionEdgeScrollRaf = requestAnimationFrame(step);
+    }
+
+    function stopGentleSelectionEdgeScroll() {
+      if (selectionEdgeScrollRaf) {
+        cancelAnimationFrame(selectionEdgeScrollRaf);
+        selectionEdgeScrollRaf = null;
+      }
+    }
+
+    // Lock unwanted scroll during typing and keyboard editing actions (Issue 2)
+    const lockScrollOnEdit = () => {
+      if (!isMobileView()) return;
+      userManualScrollTop = editorWrap.scrollTop;
+      lastControlledScrollTop = editorWrap.scrollTop;
+      lockAutoScrollUntil = Date.now() + 700;
+    };
+
+    editor.addEventListener('beforeinput', lockScrollOnEdit, { capture: true });
+    editor.addEventListener('input', lockScrollOnEdit, { capture: true });
+    editor.addEventListener('keydown', lockScrollOnEdit, { capture: true });
+    editor.addEventListener('keyup', lockScrollOnEdit, { capture: true });
+    editor.addEventListener('focus', lockScrollOnEdit, { capture: true });
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', () => {
+        if (!isMobileView()) return;
+        lockScrollOnEdit();
+        // When keyboard opens, ensure bottom padding so user can manually scroll if needed
+        const vv = window.visualViewport;
+        const kbHeight = Math.max(0, window.innerHeight - vv.height);
+        if (kbHeight > 80) {
+          editorWrap.style.setProperty('padding-bottom', `${kbHeight + 80}px`, 'important');
+        } else {
+          editorWrap.style.removeProperty('padding-bottom');
+        }
+      });
+    }
+
+    // Scroll Interceptor: Controls selection speed and suppresses unwanted auto-scroll
+    editorWrap.addEventListener('scroll', () => {
+      if (!isMobileView() || isApplyingControlledScroll) return;
+
+      // Issue 1: Slow down fast automatic scrolling during text selection handle dragging
+      if (isSelectingOrDraggingSelection) {
+        const rawDelta = editorWrap.scrollTop - lastControlledScrollTop;
+        const MAX_SELECTION_STEP = 4; // strictly cap scroll speed to 4px per event tick
+
+        if (Math.abs(rawDelta) > MAX_SELECTION_STEP) {
+          isApplyingControlledScroll = true;
+          const dampedTop = lastControlledScrollTop + Math.sign(rawDelta) * MAX_SELECTION_STEP;
+          editorWrap.scrollTop = dampedTop;
+          lastControlledScrollTop = dampedTop;
+          userManualScrollTop = dampedTop;
+          isApplyingControlledScroll = false;
+          return;
+        }
+        lastControlledScrollTop = editorWrap.scrollTop;
+        userManualScrollTop = editorWrap.scrollTop;
+        return;
+      }
+
+      // Issue 2: Prevent unwanted automatic scrolling when user types, moves cursor, or places caret
+      if (Date.now() < lockAutoScrollUntil && !isManualTouchScrolling) {
+        isApplyingControlledScroll = true;
+        editorWrap.scrollTop = userManualScrollTop;
+        lastControlledScrollTop = userManualScrollTop;
+        isApplyingControlledScroll = false;
+        return;
+      }
+
+      // When user manually scrolls, update their preferred scroll position
+      if (isManualTouchScrolling) {
+        userManualScrollTop = editorWrap.scrollTop;
+        lastControlledScrollTop = editorWrap.scrollTop;
+      }
+    }, { capture: true, passive: false });
   }
 
   // Export module
@@ -4441,7 +4890,8 @@
     openLineModal,
     insertCustomLine,
     toggleWordWrap,
-    insertColumnBreak
+    insertColumnBreak,
+    writeAfterElement
   };
 
 })(window);

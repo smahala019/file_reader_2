@@ -3126,11 +3126,15 @@ body.slide-deck-mode .editor-wrap {
   }
   .editor-wrap,
   #editorWrap {
-    padding: 12px 6px min(55vh, 420px) !important;
-    scroll-padding-bottom: min(48vh, 360px) !important;
+    padding: 14px 10px 100px !important;
+    scroll-padding: 0 !important;
+    scroll-padding-bottom: 0 !important;
+    scroll-padding-top: 0 !important;
     width: 100% !important;
     -webkit-overflow-scrolling: touch !important;
     overflow-anchor: none !important;
+    scroll-behavior: auto !important;
+    touch-action: manipulation !important;
   }
   #editorWrap.is-excel-mode,
   .editor-wrap.is-excel-mode,
@@ -3171,11 +3175,33 @@ body.slide-deck-mode .editor-wrap {
   .editor-page {
     width: 100% !important;
     max-width: 100% !important;
+    min-height: max(100%, calc(100vh - 120px)) !important;
+    height: auto !important;
     margin: 0 auto !important;
-    padding: 20px 14px !important;
-    box-shadow: none !important;
+    padding: var(--editor-page-padding, 24px 16px) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(0, 0, 0, 0.08) !important;
     border-radius: 4px !important;
     box-sizing: border-box !important;
+    background: #ffffff !important;
+    touch-action: manipulation !important;
+  }
+  /* Mobile Table Row & Column Border Lines (5px width - Issue 2) */
+  .editor-page td:not(.excel-grid-table td),
+  .editor-page th:not(.excel-grid-table th),
+  .doc-table td,
+  .doc-table th,
+  .pptx-slide-card table:not(.excel-grid-table) td,
+  .pptx-slide-card table:not(.excel-grid-table) th,
+  #editor table:not(.excel-grid-table) td,
+  #editor table:not(.excel-grid-table) th {
+    border-width: 2px !important;
+  }
+  .editor-page table:not(.excel-grid-table),
+  .doc-table:not(.excel-grid-table),
+  .pptx-slide-card table:not(.excel-grid-table),
+  #editor table:not(.excel-grid-table) {
+    border-collapse: collapse !important;
+    border-width: 2px !important;
   }
   .editor-page.is-pptx-deck {
     width: 100% !important;

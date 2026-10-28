@@ -518,7 +518,10 @@
         });
       } else if (typeof settings.margin === 'object') {
         const { top = 72, bottom = 72, left = 72, right = 72 } = settings.margin;
-        page.style.padding = `${top}px ${right}px ${bottom}px ${left}px`;
+        const padStr = `${top}px ${right}px ${bottom}px ${left}px`;
+        page.style.setProperty('padding', padStr, 'important');
+        page.style.setProperty('--editor-page-padding', padStr);
+        document.documentElement.style.setProperty('--editor-page-padding', padStr);
       }
     }
 
@@ -567,8 +570,13 @@
 
     // 5. Padding (Page Canvas Padding)
     if (settings.padding) {
-      const padMap = { compact: '36px 36px', normal: '72px 72px', spacious: '96px 96px', edge: '12px 16px' };
-      page.style.padding = padMap[settings.padding] || settings.padding;
+      const isMobile = window.innerWidth <= 768;
+      const padMapDesktop = { compact: '36px 36px', normal: '72px 72px', spacious: '96px 96px', edge: '12px 16px' };
+      const padMapMobile = { compact: '14px 10px', normal: '24px 16px', spacious: '32px 24px', edge: '6px 6px' };
+      const padStr = (isMobile ? padMapMobile[settings.padding] : padMapDesktop[settings.padding]) || settings.padding;
+      page.style.setProperty('padding', padStr, 'important');
+      page.style.setProperty('--editor-page-padding', padStr);
+      document.documentElement.style.setProperty('--editor-page-padding', padStr);
       $$('#pagePaddingPopover .margin-opt-item').forEach(el => {
         el.classList.toggle('active', el.dataset.padding === settings.padding);
       });
@@ -2719,7 +2727,7 @@
           if (window.DocFlow.ImageManager?.insertImageIntoDocument) {
             window.DocFlow.ImageManager.insertImageIntoDocument(item.url, item.title || 'Animated GIF');
           } else {
-            window.DocFlow.Editor?.insertHtmlAtCursor(`<img src="${item.url}" alt="${escHtml(item.title)}" data-wrap="inline" style="max-width:100%;"><p><br></p>`);
+            window.DocFlow.Editor?.insertHtmlAtCursor(`<img src="${item.url}" alt="${escHtml(item.title)}" data-wrap="inline" style="max-width:100%;margin:4px 8px 4px 0;display:inline-block;vertical-align:middle;">&nbsp;`);
           }
           showToast('Animated GIF inserted into document', 'success');
         });
@@ -2807,7 +2815,7 @@
       if (window.DocFlow.ImageManager?.insertImageIntoDocument) {
         window.DocFlow.ImageManager.insertImageIntoDocument(url, 'Animated GIF');
       } else {
-        window.DocFlow.Editor?.insertHtmlAtCursor(`<img src="${url}" alt="Animated GIF" data-wrap="inline" style="max-width:100%;"><p><br></p>`);
+        window.DocFlow.Editor?.insertHtmlAtCursor(`<img src="${url}" alt="Animated GIF" data-wrap="inline" style="max-width:100%;margin:4px 8px 4px 0;display:inline-block;vertical-align:middle;">&nbsp;`);
       }
       showToast('Animated GIF inserted from URL', 'success');
       if (directUrlInput) directUrlInput.value = '';
@@ -5161,14 +5169,14 @@
     }
 
     const chartHtml = `
-      <div class="doc-chart-container" contenteditable="false" style="margin:16px auto;width:${w}px;max-width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:14px;box-shadow:var(--shadow-sm);cursor:pointer;position:relative;">
+      <div class="doc-chart-container" contenteditable="false" data-wrap="inline" style="margin:6px 12px 6px 0;width:${w}px;max-width:100%;display:inline-block;vertical-align:middle;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:14px;box-shadow:var(--shadow-sm);cursor:pointer;position:relative;">
         <div class="chart-header-title" style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:8px;text-align:center;">
           <i class="fas fa-chart-column" style="color:#0284c7;margin-right:6px;"></i>${escHtml(chartTitle)}
         </div>
         <svg class="doc-chart-svg" width="100%" height="${h}" viewBox="0 0 ${w} ${h}" style="overflow:visible;display:block;">
           ${svgContent}
         </svg>
-      </div><p><br></p>`;
+      </div>&nbsp;`;
 
     const excelContainer = document.querySelector('.excel-spreadsheet-container');
     if (excelContainer) {
@@ -7310,9 +7318,13 @@
       const right = parseInt($('#customMarginRight')?.value, 10) || 72;
       const page = $('.editor-page');
       if (page) {
-        page.style.padding = `${top}px ${right}px ${bottom}px ${left}px`;
+        const padStr = `${top}px ${right}px ${bottom}px ${left}px`;
+        page.style.setProperty('padding', padStr, 'important');
+        page.style.setProperty('--editor-page-padding', padStr);
+        document.documentElement.style.setProperty('--editor-page-padding', padStr);
         updateLayoutSetting('margin', { top, bottom, left, right });
         showToast(`Custom margins applied: ${top}px, ${right}px, ${bottom}px, ${left}px`, 'success');
+        window.DocFlow?.Editor?.notifyChange?.();
       }
       closeModal('#customMarginModal');
     });
@@ -7320,37 +7332,43 @@
     function applyMarginPreset(type, save = true) {
       const page = $('.editor-page');
       if (!page) return;
+      const isMobile = window.innerWidth <= 768;
+      let padStr = '72px 72px';
       switch (type) {
         case 'normal':
-          page.style.padding = '72px 72px';
+          padStr = isMobile ? '24px 16px' : '72px 72px';
           showToast('Margins: Normal (1 inch)', 'info');
           break;
         case 'narrow':
-          page.style.padding = '36px 36px';
+          padStr = isMobile ? '16px 10px' : '36px 36px';
           showToast('Margins: Narrow (0.5 inch)', 'info');
           break;
         case 'moderate':
-          page.style.padding = '72px 54px';
+          padStr = isMobile ? '24px 20px' : '72px 54px';
           showToast('Margins: Moderate (1" Top/Bottom, 0.75" Left/Right)', 'info');
           break;
         case 'wide':
-          page.style.padding = '72px 108px';
+          padStr = isMobile ? '28px 24px' : '72px 108px';
           showToast('Margins: Wide (1.5 inch)', 'info');
           break;
         case 'mirrored':
-          page.style.padding = '72px 90px 72px 72px';
+          padStr = isMobile ? '24px 20px 24px 16px' : '72px 90px 72px 72px';
           showToast('Margins: Mirrored', 'info');
           break;
         case 'office2003':
-          page.style.padding = '72px 90px';
+          padStr = isMobile ? '24px 20px' : '72px 90px';
           showToast('Margins: Office 2003 Default', 'info');
           break;
         case 'zero':
-          page.style.padding = '16px 20px';
+          padStr = isMobile ? '8px 8px' : '16px 20px';
           showToast('Margins: Zero / Full Width', 'info');
           break;
       }
+      page.style.setProperty('padding', padStr, 'important');
+      page.style.setProperty('--editor-page-padding', padStr);
+      document.documentElement.style.setProperty('--editor-page-padding', padStr);
       if (save) updateLayoutSetting('margin', type);
+      window.DocFlow?.Editor?.notifyChange?.();
     }
 
     // Page Size Popover
@@ -7824,8 +7842,13 @@
         const pad = item.dataset.padding;
         const page = $('.editor-page');
         if (page) {
-          const padMap = { compact: '36px 36px', normal: '72px 72px', spacious: '96px 96px', edge: '12px 16px' };
-          page.style.padding = padMap[pad] || '72px 72px';
+          const isMobile = window.innerWidth <= 768;
+          const padMapDesktop = { compact: '36px 36px', normal: '72px 72px', spacious: '96px 96px', edge: '12px 16px' };
+          const padMapMobile = { compact: '14px 10px', normal: '24px 16px', spacious: '32px 24px', edge: '6px 6px' };
+          const padStr = (isMobile ? padMapMobile[pad] : padMapDesktop[pad]) || (isMobile ? '24px 16px' : '72px 72px');
+          page.style.setProperty('padding', padStr, 'important');
+          page.style.setProperty('--editor-page-padding', padStr);
+          document.documentElement.style.setProperty('--editor-page-padding', padStr);
           $$('#pagePaddingPopover .margin-opt-item').forEach(el => el.classList.remove('active'));
           item.classList.add('active');
           showToast(`Page padding: ${pad}`, 'info');

@@ -154,9 +154,11 @@
     img.style.maxWidth = '100%';
     img.style.height = 'auto';
     img.style.display = 'inline-block';
-    img.style.margin = '8px 0';
+    img.style.verticalAlign = 'middle';
+    img.style.margin = '4px 8px 4px 0';
     img.setAttribute('draggable', 'true');
     img.dataset.wrap = 'inline';
+    img.dataset.align = 'inline';
     if (widthPercent) img.style.width = widthPercent;
 
     img.addEventListener('error', () => {
@@ -532,8 +534,10 @@
     if (!targetImg) return;
     targetImg.dataset.wrap = mode;
     targetImg.dataset.align = mode;
+    const isTable = targetImg.tagName === 'TABLE';
+
     if (mode === 'center') {
-      targetImg.style.display = 'block';
+      targetImg.style.display = isTable ? 'table' : 'block';
       targetImg.style.marginLeft = 'auto';
       targetImg.style.marginRight = 'auto';
       targetImg.style.float = 'none';
@@ -542,7 +546,7 @@
         targetImg.parentElement.style.textAlign = 'center';
       }
     } else if (mode === 'left') {
-      targetImg.style.display = 'block';
+      targetImg.style.display = isTable ? 'inline-table' : 'inline-block';
       targetImg.style.marginLeft = '0';
       targetImg.style.marginRight = '16px';
       targetImg.style.float = 'left';
@@ -551,7 +555,7 @@
         targetImg.parentElement.style.textAlign = '';
       }
     } else if (mode === 'right') {
-      targetImg.style.display = 'block';
+      targetImg.style.display = isTable ? 'inline-table' : 'inline-block';
       targetImg.style.marginLeft = '16px';
       targetImg.style.marginRight = '0';
       targetImg.style.float = 'right';
@@ -559,12 +563,33 @@
       if (targetImg.parentElement && targetImg.parentElement.tagName === 'P') {
         targetImg.parentElement.style.textAlign = '';
       }
-    } else {
-      targetImg.style.display = 'inline-block';
+    } else if (mode === 'behind') {
+      targetImg.style.display = isTable ? 'inline-table' : 'inline-block';
+      targetImg.style.position = 'relative';
+      targetImg.style.zIndex = '0';
+      targetImg.style.opacity = '0.88';
       targetImg.style.marginLeft = '';
-      targetImg.style.marginRight = '';
+      targetImg.style.marginRight = '8px';
       targetImg.style.float = 'none';
       targetImg.style.clear = 'none';
+    } else if (mode === 'front') {
+      targetImg.style.display = isTable ? 'inline-table' : 'inline-block';
+      targetImg.style.position = 'relative';
+      targetImg.style.zIndex = '40';
+      targetImg.style.marginLeft = '';
+      targetImg.style.marginRight = '8px';
+      targetImg.style.float = 'none';
+      targetImg.style.clear = 'none';
+    } else {
+      targetImg.style.display = isTable ? 'inline-table' : 'inline-block';
+      targetImg.style.position = 'relative';
+      targetImg.style.zIndex = '';
+      targetImg.style.opacity = '';
+      targetImg.style.marginLeft = '';
+      targetImg.style.marginRight = '8px';
+      targetImg.style.float = 'none';
+      targetImg.style.clear = 'none';
+      targetImg.style.verticalAlign = isTable ? 'top' : 'middle';
     }
     window.DocFlow.Editor?.notifyChange();
   }
@@ -724,9 +749,9 @@
       }
 
       if (!ghostIndicator) {
-        ghostIndicator = document.createElement('div');
+        ghostIndicator = document.createElement('span');
         ghostIndicator.id = 'dfImgMoveGhost';
-        ghostIndicator.style.cssText = 'height:3px;background:var(--accent);border-radius:2px;margin:4px 0;box-shadow:0 0 6px var(--accent);pointer-events:none;';
+        ghostIndicator.style.cssText = 'display:inline-block;width:3px;height:24px;vertical-align:middle;background:var(--accent,#0284c7);border-radius:2px;margin:0 4px;box-shadow:0 0 6px var(--accent,#0284c7);pointer-events:none;';
       }
 
       if (range && editor.contains(range.commonAncestorContainer)) {
@@ -962,6 +987,8 @@
     toolbar.className = 'df-img-toolbar';
     toolbar.innerHTML = `
       ${isShape ? '<button class="df-img-btn" data-action="shape-text" title="Add / Edit Text in Shape" style="font-weight:700;color:var(--accent,#0284c7);"><i class="fas fa-font"></i> Text</button><div class="df-img-sep"></div>' : ''}
+      <button class="df-img-btn" data-action="write-after" title="Write / Type text after this element" style="font-weight:600;color:var(--accent,#0284c7);"><i class="fas fa-paragraph"></i> Write After</button>
+      <div class="df-img-sep"></div>
       <select class="df-img-select" id="dfImgSizeSelect" title="Image Size">
         <option value="25%" ${currentWidth === '25%' ? 'selected' : ''}>25% Size</option>
         <option value="50%" ${currentWidth === '50%' ? 'selected' : ''}>50% Size</option>
@@ -1053,7 +1080,10 @@
       e.stopPropagation();
 
       const action = btn.dataset.action;
-      if (action === 'shape-text') {
+      if (action === 'write-after') {
+        window.DocFlow.Editor?.writeAfterElement?.(img);
+        return;
+      } else if (action === 'shape-text') {
         addOrEditTextInShape(img);
       } else if (action === 'align-left') {
         setImageWrapMode(img, 'left');
@@ -2103,8 +2133,13 @@
     });
 
     shape.addEventListener('dblclick', e => {
+      if (e.target.closest('.doc-shape-text-editor')) return;
       e.stopPropagation();
-      addOrEditTextInShape(shape);
+      if (window.DocFlow.Editor?.writeAfterElement) {
+        window.DocFlow.Editor.writeAfterElement(shape);
+      } else {
+        addOrEditTextInShape(shape);
+      }
     });
 
     // Support dragging shape directly in Excel
