@@ -65,20 +65,8 @@
       } catch (e) { }
     }
 
-    // Fallback: place caret inside pre (if code view) or at the start/first element of editor (Issue 3)
-    try {
-      const pre = editor.querySelector('pre.md-code-view, pre.html-code-view');
-      const target = pre || editor.querySelector('p, h1, h2, div') || editor;
-      const range = document.createRange();
-      range.selectNodeContents(target);
-      range.collapse(true);
-      sel.removeAllRanges();
-      sel.addRange(range);
-      savedSelection = range.cloneRange();
-      return true;
-    } catch (e) {
-      return false;
-    }
+    // Do NOT forcibly jump caret to top of document during typing or selection (Issue 3)
+    return false;
   }
 
   // Force Caret and Status Bar to Line 1, Column 1 on Document Creation (Issue 3)
@@ -100,9 +88,25 @@
     } catch (e) { }
   }
 
-  function focusEditor() {
+  function isMobileView() {
+    return window.innerWidth <= 768 || (window.innerWidth <= 1024 && (window.matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window)));
+  }
+
+  function focusEditor(force = false) {
     if (editor) {
+      if (isMobileView() && !force) {
+        return;
+      }
+
+      // If user has a saved caret position in editor text outside excel container, restore that selection!
       const excelContainer = document.querySelector('.excel-spreadsheet-container');
+      const isSavedSelectionOutsideExcel = savedSelection && editor.contains(savedSelection.commonAncestorContainer) && (!excelContainer || !excelContainer.contains(savedSelection.commonAncestorContainer));
+      if (isSavedSelectionOutsideExcel) {
+        try { editor.focus({ preventScroll: true }); } catch (_) { editor.focus(); }
+        restoreSelection();
+        return;
+      }
+
       if (excelContainer) {
         if (window._activeExcelCell && excelContainer.contains(window._activeExcelCell)) {
           try { window._activeExcelCell.focus({ preventScroll: true }); } catch (_) { window._activeExcelCell.focus(); }
@@ -141,7 +145,9 @@
   // Safe Insertion at Caret Position (Guaranteed safe execution across browsers)
   function insertNodeAtCursor(node) {
     if (!editor) return;
-    editor.focus();
+    if (!isMobileView()) {
+      editor.focus();
+    }
     restoreSelection();
 
     const sel = window.getSelection();
@@ -185,16 +191,45 @@
   function insertHtmlAtCursor(html) {
     if (!editor) return;
     const isSpecialBlock = /<table|<svg|doc-chart-container|doc-page-break/i.test(html);
-    const activeCell = (window._activeExcelCell && document.body.contains(window._activeExcelCell))
-      ? window._activeExcelCell
-      : null;
+    const isExcelDoc = document.body.dataset.mode === 'excel' || !!document.querySelector('#editor .excel-spreadsheet-container');
+
+    const sel = window.getSelection();
+    let currentCellUnderCursor = null;
+    let nodeUnderCursor = null;
+    if (sel && sel.rangeCount > 0) {
+      let node = sel.getRangeAt(0).commonAncestorContainer;
+      if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+      if (node && editor.contains(node)) {
+        nodeUnderCursor = node;
+        currentCellUnderCursor = node.closest('td, th');
+      }
+    }
+    if (!nodeUnderCursor && savedSelection) {
+      let node = savedSelection.commonAncestorContainer;
+      if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+      if (node && editor.contains(node)) {
+        nodeUnderCursor = node;
+        currentCellUnderCursor = node.closest('td, th');
+      }
+    }
+
+    // Only target activeCell if cursor/selection is actually inside that cell,
+    // or if in dedicated Excel mode where no outside text cursor exists
+    let activeCell = null;
+    if (currentCellUnderCursor && currentCellUnderCursor.tagName === 'TD') {
+      activeCell = currentCellUnderCursor;
+    } else if (isExcelDoc && !nodeUnderCursor && window._activeExcelCell && document.body.contains(window._activeExcelCell)) {
+      activeCell = window._activeExcelCell;
+    }
+
     if (activeCell && !isSpecialBlock) {
       saveSnapshot();
-      activeCell.focus();
+      if (!isMobileView()) {
+        try { activeCell.focus(); } catch (_) { }
+      }
       const temp = document.createElement('div');
       temp.innerHTML = html;
       const textToInsert = (temp.textContent || temp.innerText || html).trim();
-      const sel = window.getSelection();
       if (sel && sel.rangeCount && activeCell.contains(sel.getRangeAt(0).commonAncestorContainer)) {
         try {
           document.execCommand('insertText', false, textToInsert);
@@ -220,7 +255,11 @@
     }
 
     saveSnapshot();
-    focusEditor();
+    if (!isMobileView()) {
+      focusEditor();
+    } else {
+      restoreSelection();
+    }
     let inserted = false;
     try {
       inserted = document.execCommand('insertHTML', false, html);
@@ -235,9 +274,9 @@
       return lastNode;
     }
     // Collapse selection to end of inserted content (Issue 2)
-    const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0) {
-      const r = sel.getRangeAt(0);
+    const curSel = window.getSelection();
+    if (curSel && curSel.rangeCount > 0) {
+      const r = curSel.getRangeAt(0);
       r.collapse(false);
       savedSelection = r.cloneRange();
     }
@@ -1514,6 +1553,36 @@
     let colIndex = -1;
     let activeTable = null;
     let tableGhostIndicator = null;
+    let resizeLockScrollTop = null;
+    let resizeLockScrollLeft = null;
+
+    const lockScrollDuringResize = () => {
+      const wrap = $('#editorWrap');
+      if (wrap) {
+        resizeLockScrollTop = wrap.scrollTop;
+        resizeLockScrollLeft = wrap.scrollLeft;
+      }
+    };
+
+    const unlockScrollAfterResize = () => {
+      resizeLockScrollTop = null;
+      resizeLockScrollLeft = null;
+      document.body.style.userSelect = '';
+      document.body.style.webkitUserSelect = '';
+    };
+
+    const isTableFocusedOrActive = (tbl) => {
+      if (!tbl) return false;
+      if (tbl.classList.contains('df-table-selected')) return true;
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        if (range && (tbl.contains(range.commonAncestorContainer) || tbl === range.commonAncestorContainer || tbl.contains(sel.anchorNode) || tbl.contains(sel.focusNode))) {
+          return true;
+        }
+      }
+      return false;
+    };
 
     // Floating move handle for table
     const tableMoveHandle = document.createElement('div');
@@ -1522,6 +1591,14 @@
     tableMoveHandle.innerHTML = '<i class="fas fa-arrows-up-down-left-right" style="font-size:12px;"></i>';
     tableMoveHandle.style.cssText = 'position:fixed;width:24px;height:24px;background:var(--accent,#0284c7);color:#ffffff;border-radius:4px;display:none;align-items:center;justify-content:center;cursor:move;z-index:999;box-shadow:0 2px 8px rgba(0,0,0,0.25);user-select:none;pointer-events:auto;';
     document.body.appendChild(tableMoveHandle);
+
+    // Floating delete button for entire table (Issue 2)
+    const tableDeleteHandle = document.createElement('div');
+    tableDeleteHandle.className = 'df-table-delete-btn';
+    tableDeleteHandle.title = 'Delete Table';
+    tableDeleteHandle.innerHTML = '<i class="fas fa-trash-can" style="font-size:11px;"></i>';
+    tableDeleteHandle.style.cssText = 'position:fixed;width:24px;height:24px;background:#ef4444;color:#ffffff;border-radius:4px;display:none;align-items:center;justify-content:center;cursor:pointer;z-index:999;box-shadow:0 2px 8px rgba(0,0,0,0.25);user-select:none;pointer-events:auto;';
+    document.body.appendChild(tableDeleteHandle);
 
     // Floating corner resize handle for entire table
     const tableCornerHandle = document.createElement('div');
@@ -1539,7 +1616,8 @@
     const showResizeGuide = (tbl, isCol, clientX, clientY, rectOrTRect) => {
       if (!tableResizeGuide) return;
       const isExcel = tbl?.classList?.contains('excel-grid-table') || tbl?.closest?.('.excel-spreadsheet-container') || document.body.dataset.mode === 'excel';
-      if (isExcel) {
+      const isTouch = window.matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window);
+      if (isExcel && isTouch) {
         tableResizeGuide.classList.add('excel-mode');
         tableResizeGuide.style.background = 'none';
         tableResizeGuide.style.boxShadow = 'none';
@@ -1552,21 +1630,21 @@
         tableResizeGuide.style.left = (clientX - 12) + 'px';
         tableResizeGuide.style.top = (clientY - 12) + 'px';
         const arrow = isCol ? '⬌' : '⬍';
-        tableResizeGuide.innerHTML = `<span class="df-excel-resizer-arrow" style="color:#ef4444;font-size:20px;font-weight:900;line-height:1;user-select:none;pointer-events:none;filter:drop-shadow(0 0 2px rgba(239,68,68,0.7));">${arrow}</span>`;
+        tableResizeGuide.innerHTML = `<span class="df-excel-resizer-arrow" style="color:#16a34a;font-size:20px;font-weight:900;line-height:1;user-select:none;pointer-events:none;filter:drop-shadow(0 0 2px rgba(22,163,74,0.7));">${arrow}</span>`;
       } else {
         tableResizeGuide.classList.remove('excel-mode');
         tableResizeGuide.innerHTML = '';
-        tableResizeGuide.style.background = '#0284c7';
-        tableResizeGuide.style.boxShadow = '0 0 10px rgba(2,132,199,0.9), 0 0 4px #0284c7';
+        tableResizeGuide.style.background = isExcel ? '#16a34a' : '#0284c7';
+        tableResizeGuide.style.boxShadow = isExcel ? '0 0 8px rgba(22,163,74,0.8)' : '0 0 10px rgba(2,132,199,0.9), 0 0 4px #0284c7';
         tableResizeGuide.style.border = 'none';
         tableResizeGuide.style.display = 'block';
         if (isCol) {
-          tableResizeGuide.style.width = '3px';
+          tableResizeGuide.style.width = '2px';
           tableResizeGuide.style.height = (rectOrTRect?.height || 20) + 'px';
           tableResizeGuide.style.top = (rectOrTRect?.top || 0) + 'px';
           tableResizeGuide.style.left = Math.round(clientX - 1) + 'px';
         } else {
-          tableResizeGuide.style.height = '3px';
+          tableResizeGuide.style.height = '2px';
           tableResizeGuide.style.width = (rectOrTRect?.width || 20) + 'px';
           tableResizeGuide.style.left = (rectOrTRect?.left || 0) + 'px';
           tableResizeGuide.style.top = Math.round(clientY - 1) + 'px';
@@ -1581,25 +1659,50 @@
       tableResizeGuide.classList.remove('excel-mode');
     };
 
-    const positionTableHandles = (tbl) => {
-      if (!tbl || !document.body.contains(tbl)) {
-        tableMoveHandle.style.display = 'none';
-        tableCornerHandle.style.display = 'none';
-        return;
-      }
-      const r = tbl.getBoundingClientRect();
-      if (r.width === 0 && r.height === 0) {
-        tableMoveHandle.style.display = 'none';
-        tableCornerHandle.style.display = 'none';
-        return;
-      }
-      tableMoveHandle.style.display = 'flex';
-      tableMoveHandle.style.left = Math.max(4, Math.round(r.left - 28)) + 'px';
-      tableMoveHandle.style.top = Math.max(4, Math.round(r.top - 4)) + 'px';
+    const hideTableHandles = () => {
+      if (tableDeleteHandle) tableDeleteHandle.style.display = 'none';
+      if (tableMoveHandle) tableMoveHandle.style.display = 'none';
+      if (tableCornerHandle) tableCornerHandle.style.display = 'none';
+      hideResizeGuide();
+    };
 
-      tableCornerHandle.style.display = 'block';
-      tableCornerHandle.style.left = Math.round(r.right - 6) + 'px';
-      tableCornerHandle.style.top = Math.round(r.bottom - 6) + 'px';
+    const positionTableHandles = (tbl) => {
+      if (!tbl || !document.body.contains(tbl) || tbl.classList.contains('excel-grid-table') || tbl.closest('.excel-spreadsheet-container') || document.body.dataset.mode === 'excel') {
+        hideTableHandles();
+        return;
+      }
+      const wrap = $('#editorWrap');
+      const wrapRect = wrap ? wrap.getBoundingClientRect() : { top: 0, bottom: window.innerHeight, left: 0, right: window.innerWidth };
+      const r = tbl.getBoundingClientRect();
+      if ((r.width === 0 && r.height === 0) || r.bottom < wrapRect.top || r.top > wrapRect.bottom || r.right < wrapRect.left || r.left > wrapRect.right) {
+        hideTableHandles();
+        return;
+      }
+
+      const handleTop = r.top - 4;
+      const delHandleTop = r.top + 24;
+      if (delHandleTop < wrapRect.top || handleTop > wrapRect.bottom) {
+        tableMoveHandle.style.display = 'none';
+        tableDeleteHandle.style.display = 'none';
+      } else {
+        tableMoveHandle.style.display = 'flex';
+        tableMoveHandle.style.left = Math.max(4, Math.round(r.left - 28)) + 'px';
+        tableMoveHandle.style.top = Math.round(handleTop) + 'px';
+
+        tableDeleteHandle.style.display = 'flex';
+        tableDeleteHandle.style.left = Math.max(4, Math.round(r.left - 28)) + 'px';
+        tableDeleteHandle.style.top = Math.round(delHandleTop) + 'px';
+      }
+
+      const cornerTop = r.bottom - 6;
+      const cornerLeft = r.right - 6;
+      if (cornerTop < wrapRect.top || cornerTop > wrapRect.bottom || cornerLeft < wrapRect.left || cornerLeft > wrapRect.right) {
+        tableCornerHandle.style.display = 'none';
+      } else {
+        tableCornerHandle.style.display = 'block';
+        tableCornerHandle.style.left = Math.round(cornerLeft) + 'px';
+        tableCornerHandle.style.top = Math.round(cornerTop) + 'px';
+      }
     };
 
     // Corner handle mousedown & touchstart
@@ -1607,6 +1710,7 @@
       if (!activeTable) return;
       isCornerResizing = true;
       isTableMoving = false;
+      lockScrollDuringResize();
       startX = clientX;
       startY = clientY;
       startTableWidth = activeTable.offsetWidth;
@@ -1617,6 +1721,7 @@
       saveSnapshot(true);
       document.body.style.cursor = 'nwse-resize';
       document.body.style.userSelect = 'none';
+      document.body.style.webkitUserSelect = 'none';
     };
 
     tableCornerHandle.addEventListener('mousedown', e => {
@@ -1637,16 +1742,189 @@
     const onMoveStart = () => {
       if (!activeTable) return;
       isTableMoving = true;
+      lockScrollDuringResize();
       tableMoveHandle.style.pointerEvents = 'none';
       saveSnapshot(true);
       document.body.style.cursor = 'move';
       document.body.style.userSelect = 'none';
+      document.body.style.webkitUserSelect = 'none';
+    };
+
+    // Select and remove tables cleanly (Issue 2)
+    const selectTable = (tbl) => {
+      if (!tbl || tbl.classList.contains('excel-grid-table') || tbl.closest('.excel-spreadsheet-container')) return;
+      editor.querySelectorAll('table.df-table-selected').forEach(t => {
+        if (t !== tbl) t.classList.remove('df-table-selected');
+      });
+      tbl.classList.add('df-table-selected');
+      try {
+        const sel = window.getSelection();
+        if (sel) {
+          const range = document.createRange();
+          range.selectNode(tbl);
+          sel.removeAllRanges();
+          sel.addRange(range);
+          savedSelection = range.cloneRange();
+        }
+      } catch (_) {}
+    };
+
+    const removeTableCleanly = (tbl) => {
+      if (!tbl || !tbl.parentNode) return false;
+      if (tbl.classList.contains('excel-grid-table') || tbl.closest('.excel-spreadsheet-container')) return false;
+
+      saveSnapshot(true);
+      const parent = tbl.parentNode;
+      let targetNode = null;
+      let placeAtStart = false;
+
+      if (tbl.previousElementSibling && !tbl.previousElementSibling.classList.contains('doc-header-area') && !tbl.previousElementSibling.classList.contains('df-page-header')) {
+        targetNode = tbl.previousElementSibling;
+        placeAtStart = false;
+      } else if (tbl.nextElementSibling && !tbl.nextElementSibling.classList.contains('doc-footer-area') && !tbl.nextElementSibling.classList.contains('df-page-footer')) {
+        targetNode = tbl.nextElementSibling;
+        placeAtStart = true;
+      } else {
+        const p = document.createElement('p');
+        p.innerHTML = '<br>';
+        parent.insertBefore(p, tbl);
+        targetNode = p;
+        placeAtStart = true;
+      }
+
+      tbl.classList.remove('df-table-selected');
+      if (activeTable === tbl) activeTable = null;
+      if (tableMoveHandle) tableMoveHandle.style.display = 'none';
+      if (tableDeleteHandle) tableDeleteHandle.style.display = 'none';
+      if (tableCornerHandle) tableCornerHandle.style.display = 'none';
+      hideResizeGuide();
+
+      tbl.remove();
+
+      try {
+        const sel = window.getSelection();
+        if (sel && targetNode) {
+          const range = document.createRange();
+          range.selectNodeContents(targetNode);
+          range.collapse(placeAtStart);
+          sel.removeAllRanges();
+          if (!isMobileView()) {
+            sel.addRange(range);
+            savedSelection = range.cloneRange();
+          }
+        }
+      } catch (_) {}
+
+      saveSnapshot(true);
+      notifyChange();
+      showToast('Table removed', 'info');
+      return true;
+    };
+
+    const onDeleteTableClick = (e) => {
+      if (!activeTable) return;
+      e.preventDefault();
+      e.stopPropagation();
+      removeTableCleanly(activeTable);
+    };
+    tableDeleteHandle.addEventListener('click', onDeleteTableClick);
+    tableDeleteHandle.addEventListener('touchstart', onDeleteTableClick, { passive: false });
+
+    // Table Removal Logic for Backspace & Delete (Issue 2)
+    const tryRemoveTableOnKey = (isDeleteKey = false) => {
+      // 1. If a table is explicitly selected (.df-table-selected)
+      const selectedTable = editor.querySelector('table.df-table-selected');
+      if (selectedTable && !selectedTable.classList.contains('excel-grid-table') && !selectedTable.closest('.excel-spreadsheet-container')) {
+        removeTableCleanly(selectedTable);
+        return true;
+      }
+
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return false;
+      const range = sel.getRangeAt(0);
+      let node = range.commonAncestorContainer;
+      if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+
+      // 2. If cursor/selection is inside a document table (Issue 2)
+      const curTable = node.closest ? node.closest('table:not(.excel-grid-table)') : null;
+      if (curTable && editor.contains(curTable) && !curTable.closest('.excel-spreadsheet-container')) {
+        const tblText = (curTable.innerText || curTable.textContent || '').trim();
+        const isEmptyTable = tblText.length === 0;
+
+        // If the table only has 1 row left (Issue 2: ensure complete removal with no last row left behind)
+        if (curTable.rows.length <= 1) {
+          removeTableCleanly(curTable);
+          return true;
+        }
+
+        const allRows = Array.from(curTable.rows);
+        const spansFirstToLast = allRows.length > 0 && range.intersectsNode(allRows[0]) && range.intersectsNode(allRows[allRows.length - 1]);
+
+        const selText = sel.toString().trim();
+        const isFullTableSelected = !range.collapsed && (
+          (selText && selText === tblText) ||
+          spansFirstToLast ||
+          (range.startContainer === curTable && range.endContainer === curTable) ||
+          (range.commonAncestorContainer === curTable) ||
+          (range.commonAncestorContainer === curTable.querySelector('tbody')) ||
+          (curTable.contains(range.startContainer) && curTable.contains(range.endContainer) && range.cloneContents().querySelectorAll('tr').length === curTable.rows.length)
+        );
+
+        if (isFullTableSelected || isEmptyTable) {
+          removeTableCleanly(curTable);
+          return true;
+        }
+      }
+
+      // 3. If selection spans across a table from outside (Issue 2)
+      if (!range.collapsed) {
+        const tables = Array.from(editor.querySelectorAll('table:not(.excel-grid-table)'));
+        for (const t of tables) {
+          if (!t.closest('.excel-spreadsheet-container') && range.intersectsNode(t)) {
+            try {
+              const startsBefore = range.comparePoint(t, 0) >= 0;
+              const endsAfter = range.comparePoint(t, t.childNodes.length) <= 0;
+              if (startsBefore && endsAfter) {
+                removeTableCleanly(t);
+                return true;
+              }
+            } catch (_) {}
+          }
+        }
+      }
+
+      // 4. If collapsed cursor is in an empty paragraph right after a table and user presses Backspace
+      if (range.collapsed && !isDeleteKey) {
+        const block = node.closest('p, div, h1, h2, h3, h4, blockquote');
+        if (block && (block.innerText || block.textContent || '').trim().length === 0 && block.previousElementSibling?.tagName === 'TABLE') {
+          const prevTable = block.previousElementSibling;
+          if (!prevTable.classList.contains('excel-grid-table') && !prevTable.closest('.excel-spreadsheet-container')) {
+            removeTableCleanly(prevTable);
+            return true;
+          }
+        }
+      }
+
+      // 5. If collapsed cursor is right before a table and user presses Delete
+      if (range.collapsed && isDeleteKey) {
+        const block = node.closest('p, div, h1, h2, h3, h4, blockquote');
+        if (block && (block.innerText || block.textContent || '').trim().length === 0 && block.nextElementSibling?.tagName === 'TABLE') {
+          const nextTable = block.nextElementSibling;
+          if (!nextTable.classList.contains('excel-grid-table') && !nextTable.closest('.excel-spreadsheet-container')) {
+            removeTableCleanly(nextTable);
+            return true;
+          }
+        }
+      }
+
+      return false;
     };
 
     tableMoveHandle.addEventListener('mousedown', e => {
       if (!activeTable) return;
       e.preventDefault();
       e.stopPropagation();
+      selectTable(activeTable);
       onMoveStart();
     });
 
@@ -1654,16 +1932,53 @@
       if (!activeTable || !e.touches || !e.touches[0]) return;
       e.preventDefault();
       e.stopPropagation();
+      selectTable(activeTable);
       onMoveStart();
     }, { passive: false });
+
+    tableMoveHandle.addEventListener('click', e => {
+      if (!activeTable) return;
+      e.preventDefault();
+      e.stopPropagation();
+      selectTable(activeTable);
+    });
+
+    const onOutsideTableClick = (e) => {
+      const clickedTable = e.target.closest?.('table:not(.excel-grid-table)');
+      const isInsideHandle = e.target.closest?.('.df-table-move-handle, .df-table-corner-handle, .df-table-delete-btn');
+      if (clickedTable && !clickedTable.closest('.excel-spreadsheet-container')) {
+        activeTable = clickedTable;
+        positionTableHandles(clickedTable);
+        return;
+      }
+      if (!isInsideHandle) {
+        hideTableHandles();
+        activeTable = null;
+        document.querySelectorAll('table.df-table-selected').forEach(t => t.classList.remove('df-table-selected'));
+      }
+    };
+    document.addEventListener('click', onOutsideTableClick);
+    document.addEventListener('pointerdown', onOutsideTableClick);
+    window.addEventListener('blur', hideTableHandles);
 
     // Update positions on editor scroll and suppress resizer during scroll (Issue 1 & Issue 3.c)
     let isSpreadsheetScrolling = false;
     let spreadsheetScrollTimer = null;
 
     const onExcelScroll = () => {
+      // Never interrupt or reset while user is actively resizing or moving table
+      if (isCornerResizing || isTableMoving || resizingCol || resizingRow) {
+        const wrap = $('#editorWrap');
+        if (wrap && resizeLockScrollTop !== null) {
+          wrap.scrollTop = resizeLockScrollTop;
+          wrap.scrollLeft = resizeLockScrollLeft;
+        }
+        return;
+      }
+
       excelScrollCooldown = Date.now() + 800;
       isSpreadsheetScrolling = true;
+      document.body.style.cursor = '';
       hideResizeGuide();
       document.body.classList.remove('is-table-resizing-col', 'is-table-resizing-row', 'is-excel-resizing');
 
@@ -1672,17 +1987,14 @@
         isSpreadsheetScrolling = false;
       }, 500);
 
-      if (activeTable && !isCornerResizing && !isTableMoving) {
-        if (tableMoveHandle.style.display === 'flex') {
-          const wrap = $('#editorWrap');
-          const wrapRect = wrap ? wrap.getBoundingClientRect() : null;
-          const r = activeTable.getBoundingClientRect();
-          if (wrapRect && (r.bottom < wrapRect.top || r.top > wrapRect.bottom)) {
-            tableMoveHandle.style.display = 'none';
-            tableCornerHandle.style.display = 'none';
-          } else {
-            positionTableHandles(activeTable);
-          }
+      if (activeTable) {
+        const wrap = $('#editorWrap');
+        const wrapRect = wrap ? wrap.getBoundingClientRect() : { top: 0, bottom: window.innerHeight, left: 0, right: window.innerWidth };
+        const r = activeTable.getBoundingClientRect();
+        if (r.bottom < wrapRect.top || r.top > wrapRect.bottom || r.right < wrapRect.left || r.left > wrapRect.right) {
+          hideTableHandles();
+        } else {
+          positionTableHandles(activeTable);
         }
       }
     };
@@ -1693,8 +2005,16 @@
     window.addEventListener('scroll', onExcelScroll, { capture: true, passive: true });
     window.addEventListener('wheel', onExcelScroll, { capture: true, passive: true });
     $('#editorWrap')?.addEventListener('scroll', onExcelScroll, { capture: true, passive: true });
+    document.querySelector('.excel-spreadsheet-container')?.addEventListener('scroll', onExcelScroll, { capture: true, passive: true });
+    document.querySelector('.excel-sheet-viewport')?.addEventListener('scroll', onExcelScroll, { capture: true, passive: true });
 
     const handleTableMove = (clientX, clientY) => {
+      const wrap = $('#editorWrap');
+      if (wrap && resizeLockScrollTop !== null && (isCornerResizing || isTableMoving || resizingCol || resizingRow)) {
+        wrap.scrollTop = resizeLockScrollTop;
+        wrap.scrollLeft = resizeLockScrollLeft;
+      }
+
       if (isCornerResizing && activeTable) {
         const dx = clientX - startX;
         const dy = clientY - startY;
@@ -1817,11 +2137,17 @@
     };
 
     document.addEventListener('mousemove', (e) => {
+      if (isCornerResizing || isTableMoving || resizingCol || resizingRow) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleTableMove(e.clientX, e.clientY);
+        return;
+      }
       if (handleTableMove(e.clientX, e.clientY)) return;
 
-      // Check hover over table or near cell borders (Issue 3.c: buffer zone prevents handle from vanishing)
+      // Check hover over table or near cell borders (buffer zone prevents handle from vanishing prematurely)
       const tbl = e.target.closest?.('table.doc-table, #editor table:not(.excel-grid-table)');
-      const isOverHandle = e.target.closest?.('.df-table-move-handle, .df-table-corner-handle');
+      const isOverHandle = e.target.closest?.('.df-table-move-handle, .df-table-corner-handle, .df-table-delete-btn');
 
       if (tbl && !tbl.closest('.excel-spreadsheet-container')) {
         activeTable = tbl;
@@ -1829,36 +2155,42 @@
       } else if (isOverHandle) {
         if (activeTable) positionTableHandles(activeTable);
       } else if (activeTable) {
-        const r = activeTable.getBoundingClientRect();
-        // Buffer zone of 42px around the table so user can easily reach the move handle at r.left - 28px
-        const inBufferZone = (
-          e.clientX >= r.left - 42 &&
-          e.clientX <= r.right + 25 &&
-          e.clientY >= r.top - 25 &&
-          e.clientY <= r.bottom + 25
-        );
-        if (!inBufferZone && !activeTable.contains(document.activeElement)) {
-          tableMoveHandle.style.display = 'none';
-          tableCornerHandle.style.display = 'none';
+        // If user is focused on the table, KEEP handles visible!
+        if (isTableFocusedOrActive(activeTable)) {
+          positionTableHandles(activeTable);
+        } else {
+          const r = activeTable.getBoundingClientRect();
+          // Buffer zone of 42px around the table so user can easily reach the move handle at r.left - 28px
+          const inBufferZone = (
+            e.clientX >= r.left - 42 &&
+            e.clientX <= r.right + 25 &&
+            e.clientY >= r.top - 25 &&
+            e.clientY <= r.bottom + 25
+          );
+          if (!inBufferZone) {
+            hideTableHandles();
+          }
         }
       } else {
-        tableMoveHandle.style.display = 'none';
-        tableCornerHandle.style.display = 'none';
+        hideTableHandles();
       }
 
       if (isSpreadsheetScrolling || Date.now() < excelScrollCooldown) {
+        document.body.style.cursor = '';
         if (!resizingCol && !resizingRow) hideResizeGuide();
         return;
       }
 
       const cell = e.target.closest?.('td, th');
       if (!cell) {
+        document.body.style.cursor = '';
         document.body.classList.remove('is-table-resizing-col', 'is-table-resizing-row', 'is-excel-resizing');
         if (!resizingCol && !resizingRow) hideResizeGuide();
         return;
       }
       const cellTable = cell.closest('table.doc-table, #editor table, .excel-grid-table');
       if (!cellTable) {
+        document.body.style.cursor = '';
         document.body.classList.remove('is-table-resizing-col', 'is-table-resizing-row', 'is-excel-resizing');
         if (!resizingCol && !resizingRow) hideResizeGuide();
         return;
@@ -1870,35 +2202,39 @@
         // Resizer should ONLY appear when user clicks on a cell or attempts to resize it (Issue 1)
         // Never appear on unclicked cells or headers while scrolling without pointing/clicking any cell
         const isActivelyResizing = resizingCol || resizingRow;
+        const isHdr = cell.classList.contains('excel-col-hdr') || cell.classList.contains('excel-row-hdr');
         const isClickedActiveCell = (
           cell === window._activeExcelCell ||
           cell.classList.contains('excel-cell-focus') ||
           cell.classList.contains('excel-cell-selected')
         );
 
-        if (!isActivelyResizing && !isClickedActiveCell) {
+        if (!isActivelyResizing && !isHdr && !isClickedActiveCell) {
           cell.style.cursor = '';
+          document.body.style.cursor = '';
           hideResizeGuide();
           return;
         }
       }
 
       const rect = cell.getBoundingClientRect();
-      const nearRight = Math.abs(rect.right - e.clientX) <= 6;
-      const nearBottom = Math.abs(rect.bottom - e.clientY) <= 6;
+      const edgeThreshold = isExcel ? 6 : 11;
+      const nearRight = Math.abs(rect.right - e.clientX) <= edgeThreshold;
+      const nearBottom = Math.abs(rect.bottom - e.clientY) <= edgeThreshold;
 
       if (nearRight) {
-        // Hide OS cursor in Excel mode so only ONE resizer icon (the red floating arrow) is visible
-        cell.style.cursor = isExcel ? 'none' : 'col-resize';
+        cell.style.cursor = 'col-resize';
+        document.body.style.cursor = 'col-resize';
         const tRect = cellTable.getBoundingClientRect();
         showResizeGuide(cellTable, true, rect.right, e.clientY, tRect);
       } else if (nearBottom) {
-        // Hide OS cursor in Excel mode so only ONE resizer icon (the red floating arrow) is visible
-        cell.style.cursor = isExcel ? 'none' : 'row-resize';
+        cell.style.cursor = 'row-resize';
+        document.body.style.cursor = 'row-resize';
         const tRect = cellTable.getBoundingClientRect();
         showResizeGuide(cellTable, false, e.clientX, rect.bottom, tRect);
       } else {
         cell.style.cursor = '';
+        document.body.style.cursor = '';
         if (!resizingCol && !resizingRow) {
           hideResizeGuide();
         }
@@ -1916,7 +2252,7 @@
     }, { passive: false });
 
     document.addEventListener('mousedown', (e) => {
-      if (e.target.closest('.df-table-move-handle, .df-table-corner-handle')) return;
+      if (e.target.closest('.df-table-move-handle, .df-table-corner-handle, .df-table-delete-btn')) return;
 
       const cell = e.target.closest?.('td, th');
       if (!cell) return;
@@ -1928,28 +2264,54 @@
         positionTableHandles(tbl);
       }
 
+      if (isSpreadsheetScrolling || Date.now() < excelScrollCooldown) {
+        return;
+      }
+
       const isExcel = tbl.classList.contains('excel-grid-table') || !!tbl.closest('.excel-spreadsheet-container') || document.body.dataset.mode === 'excel';
+      if (isExcel) {
+        const isHdr = cell.classList.contains('excel-col-hdr') || cell.classList.contains('excel-row-hdr');
+        const isClickedActiveCell = (
+          cell === window._activeExcelCell ||
+          cell.classList.contains('excel-cell-focus') ||
+          cell.classList.contains('excel-cell-selected')
+        );
+        // Only allow resizing on header borders OR currently clicked/selected cell
+        if (!isHdr && !isClickedActiveCell) {
+          return;
+        }
+      }
+
       const rect = cell.getBoundingClientRect();
-      const nearRight = Math.abs(rect.right - e.clientX) <= 6;
-      const nearBottom = Math.abs(rect.bottom - e.clientY) <= 6;
+      const edgeThreshold = isExcel ? 6 : 11;
+      const nearRight = Math.abs(rect.right - e.clientX) <= edgeThreshold;
+      const nearBottom = Math.abs(rect.bottom - e.clientY) <= edgeThreshold;
 
       if (nearRight) {
         e.preventDefault();
         e.stopPropagation();
+        lockScrollDuringResize();
         colIndex = cell.cellIndex;
         startX = e.clientX;
         startWidth = cell.offsetWidth;
         resizingCol = true;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        document.body.style.webkitUserSelect = 'none';
         document.body.classList.add('is-table-resizing-col');
         if (isExcel) document.body.classList.add('is-excel-resizing');
         saveSnapshot(true);
       } else if (nearBottom) {
         e.preventDefault();
         e.stopPropagation();
+        lockScrollDuringResize();
         targetRow = cell.closest('tr');
         startY = e.clientY;
         startHeight = targetRow ? targetRow.offsetHeight : cell.offsetHeight;
         resizingRow = true;
+        document.body.style.cursor = 'row-resize';
+        document.body.style.userSelect = 'none';
+        document.body.style.webkitUserSelect = 'none';
         document.body.classList.add('is-table-resizing-row');
         if (isExcel) document.body.classList.add('is-excel-resizing');
         saveSnapshot(true);
@@ -1957,7 +2319,7 @@
     });
 
     document.addEventListener('touchstart', (e) => {
-      if (e.target.closest('.df-table-move-handle, .df-table-corner-handle')) return;
+      if (e.target.closest('.df-table-move-handle, .df-table-corner-handle, .df-table-delete-btn')) return;
       if (!e.touches || !e.touches[0]) return;
       const touch = e.touches[0];
       const cell = e.target.closest?.('td, th');
@@ -1970,28 +2332,52 @@
         positionTableHandles(tbl);
       }
 
+      if (isSpreadsheetScrolling || Date.now() < excelScrollCooldown) {
+        return;
+      }
+
       const isExcel = tbl.classList.contains('excel-grid-table') || !!tbl.closest('.excel-spreadsheet-container') || document.body.dataset.mode === 'excel';
+      if (isExcel) {
+        const isHdr = cell.classList.contains('excel-col-hdr') || cell.classList.contains('excel-row-hdr');
+        const isClickedActiveCell = (
+          cell === window._activeExcelCell ||
+          cell.classList.contains('excel-cell-focus') ||
+          cell.classList.contains('excel-cell-selected')
+        );
+        // On mobile touch: touch scrolling must NOT be hijacked by cell borders on unselected cells!
+        if (!isHdr && !isClickedActiveCell) {
+          return;
+        }
+      }
+
       const rect = cell.getBoundingClientRect();
-      const nearRight = Math.abs(rect.right - touch.clientX) <= 16;
-      const nearBottom = Math.abs(rect.bottom - touch.clientY) <= 16;
+      const touchThreshold = isExcel ? 8 : 22;
+      const nearRight = Math.abs(rect.right - touch.clientX) <= touchThreshold;
+      const nearBottom = Math.abs(rect.bottom - touch.clientY) <= touchThreshold;
 
       if (nearRight) {
         if (e.cancelable) e.preventDefault();
         e.stopPropagation();
+        lockScrollDuringResize();
         colIndex = cell.cellIndex;
         startX = touch.clientX;
         startWidth = cell.offsetWidth;
         resizingCol = true;
+        document.body.style.userSelect = 'none';
+        document.body.style.webkitUserSelect = 'none';
         document.body.classList.add('is-table-resizing-col');
         if (isExcel) document.body.classList.add('is-excel-resizing');
         saveSnapshot(true);
       } else if (nearBottom) {
         if (e.cancelable) e.preventDefault();
         e.stopPropagation();
+        lockScrollDuringResize();
         targetRow = cell.closest('tr');
         startY = touch.clientY;
         startHeight = targetRow ? targetRow.offsetHeight : cell.offsetHeight;
         resizingRow = true;
+        document.body.style.userSelect = 'none';
+        document.body.style.webkitUserSelect = 'none';
         document.body.classList.add('is-table-resizing-row');
         if (isExcel) document.body.classList.add('is-excel-resizing');
         saveSnapshot(true);
@@ -2000,8 +2386,8 @@
 
     const handleTableEnd = (clientX, clientY) => {
       document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      document.body.classList.remove('is-excel-resizing');
+      unlockScrollAfterResize();
+      document.body.classList.remove('is-excel-resizing', 'is-table-resizing-col', 'is-table-resizing-row');
       hideResizeGuide();
 
       if (isCornerResizing) {
@@ -2038,10 +2424,9 @@
         resizingCol = null;
         resizingRow = null;
         targetRow = null;
-        document.body.classList.remove('is-table-resizing-col', 'is-table-resizing-row', 'is-excel-resizing');
         notifyChange();
         saveSnapshot(true);
-        if (activeTable && !activeTable.classList.contains('excel-grid-table')) positionTableHandles(activeTable);
+        if (activeTable) positionTableHandles(activeTable);
       }
     };
 
@@ -3512,17 +3897,48 @@
       });
     }
 
-    // Universal focus protection: prevent clicking ribbon/toolbar buttons/popovers/steppers from stealing editor focus
+    // Universal focus protection: prevent clicking ribbon/toolbar buttons/popovers/steppers from stealing editor focus on desktop, while preventing auto keyboard opening on mobile (Issue 2)
     document.addEventListener('mousedown', e => {
-      const isControl = e.target.closest('.ribbon-container, .topbar, .quick-tools, .spacing-popover, .status-bar, .context-menu');
+      const isControl = e.target.closest('.ribbon-container, .ribbon-menu-bar, .topbar, .quick-tools, .spacing-popover, .status-bar, .context-menu');
       const isEditableInput = e.target.closest('input:not([readonly]), textarea, select, [contenteditable="true"]');
       if (isControl && !isEditableInput) {
         if (window.DocFlow.currentMode === 'edit') {
           saveSelection();
         }
-        e.preventDefault();
+        if (isMobileView()) {
+          // On mobile view: blur active editable elements so virtual keyboard never auto opens (Issue 2)
+          if (document.activeElement && (document.activeElement === editor || document.activeElement.isContentEditable || document.activeElement.closest?.('#editor, .excel-grid-table'))) {
+            document.activeElement.blur();
+          }
+        } else {
+          e.preventDefault();
+        }
       }
     }, true);
+
+    // On mobile touch: touching any menu bar or ribbon button closes/prevents virtual keyboard (Issue 2)
+    document.addEventListener('touchstart', e => {
+      const isControl = e.target.closest('.ribbon-container, .ribbon-menu-bar, .ribbon-panel, .topbar, #tabBar, .status-bar');
+      const isEditableInput = e.target.closest('input:not([readonly]), textarea, select, [contenteditable="true"]');
+      if (isControl && !isEditableInput) {
+        if (window.DocFlow.currentMode === 'edit') {
+          saveSelection();
+        }
+        if (document.activeElement && (document.activeElement === editor || document.activeElement.isContentEditable || document.activeElement.closest?.('#editor, .excel-grid-table'))) {
+          document.activeElement.blur();
+        }
+      }
+    }, { passive: true });
+
+    // When clicking inside editor outside of any table cell, clear active table cell reference (Issue 3)
+    editor.addEventListener('click', e => {
+      if (!e.target.closest('td, th')) {
+        const isExcelDoc = document.body.dataset.mode === 'excel' || !!document.querySelector('#editor .excel-spreadsheet-container');
+        if (!isExcelDoc) {
+          window._activeExcelCell = null;
+        }
+      }
+    });
 
     // Continuous Caret & Selection Tracking (Issue 2 & Issue 7)
     document.addEventListener('selectionchange', () => {
@@ -3541,11 +3957,60 @@
       }
     }, true);
 
+    // On mobile view: touching or clicking any menu bar button, ribbon tab, toolbar button, popover, or header/footer control
+    // explicitly blurs any active editable element so virtual keyboard never opens automatically (Issue 1)
+    const onMobileMenuTouch = (e) => {
+      if (!isMobileView()) return;
+      const menuOrRibbonCtrl = e.target.closest(
+        '.ribbon-menu-bar, .ribbon-container, .topbar, .fmt-btn, .ribbon-tab-btn, .ribbon-tool-btn, .tab-menu-item, .popover, .dropdown-menu, .spacing-popover, .spacing-opt-item, #layoutHeaderFooterDropdownWrap, #layoutHeaderFooterPopover, .df-hf-delete-btn, .doc-header-area, .doc-footer-area, .df-page-header, .df-page-footer, #headerFooterModal'
+      );
+      if (menuOrRibbonCtrl && !e.target.closest('input, textarea, .doc-header-editable, .doc-footer-editable')) {
+        if (document.activeElement && (
+          document.activeElement.isContentEditable ||
+          document.activeElement.closest?.('#editor, .excel-grid-table, [contenteditable="true"]')
+        )) {
+          try { document.activeElement.blur(); } catch (_) { }
+        }
+      }
+    };
+    document.addEventListener('touchstart', onMobileMenuTouch, { capture: true, passive: true });
+    document.addEventListener('mousedown', onMobileMenuTouch, { capture: true, passive: true });
+
+    // In mobile devices: Header or footer container/buttons must NOT open keyboard automatically (Issue 1)
+    // Keyboard only opens when user explicitly clicks/focuses inside an editable text area (.doc-header-editable / .doc-footer-editable)
+    const preventHeaderFooterAutoKeyboard = (e) => {
+      const hf = e.target.closest('header, footer, .doc-header-area, .doc-footer-area, .df-page-header, .df-page-footer, .topbar, .statusbar, .modal-header, .modal-footer, #headerFooterModal');
+      if (hf) {
+        const btn = e.target.closest('button, [role="button"], .df-hf-delete-btn, .modal-btn, .modal-close-icon');
+        const isEditable = e.target.closest('.doc-header-editable, .doc-footer-editable, input, textarea, [contenteditable="true"]');
+        if (btn || !isEditable) {
+          if (isMobileView() || e.type === 'touchstart') {
+            e.stopPropagation();
+            if (btn || e.type === 'touchstart' || e.type === 'pointerdown') {
+              e.preventDefault();
+            }
+            if (document.activeElement && (document.activeElement.isContentEditable || document.activeElement.closest?.('#editor, [contenteditable="true"]'))) {
+              try { document.activeElement.blur(); } catch (_) {}
+            }
+            if (btn && typeof btn.click === 'function' && (e.type === 'touchstart' || e.type === 'pointerdown')) {
+              // Trigger button action cleanly without focusing editor or keyboard
+              setTimeout(() => {
+                try { btn.click(); } catch (_) {}
+              }, 10);
+            }
+          }
+        }
+      }
+    };
+    document.addEventListener('touchstart', preventHeaderFooterAutoKeyboard, { capture: true, passive: false });
+    document.addEventListener('pointerdown', preventHeaderFooterAutoKeyboard, { capture: true });
+    document.addEventListener('mousedown', preventHeaderFooterAutoKeyboard, { capture: true });
+
     // Return focus to editor whenever a toolbar/ribbon action button or popover item is clicked
     document.addEventListener('click', e => {
       if (window.DocFlow?.currentMode !== 'edit' || !editor) return;
-      // Do not auto-focus editor on mobile/touch screens to prevent unwanted keyboard opening (Issue 5)
-      if (window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches) return;
+      // Do not auto-focus editor on mobile/touch screens to prevent unwanted keyboard opening (Issue 2)
+      if (isMobileView()) return;
       const btn = e.target.closest('.fmt-btn, .ribbon-tool-btn, .spacing-opt-item, .bullet-opt-item, .popover-item, .tab-menu-item');
       if (btn && !e.target.closest('input, textarea, select')) {
         const isModalTrigger = btn.dataset.opensModal || btn.dataset.modal || btn.dataset.openModal ||
@@ -3559,11 +4024,19 @@
       }
     });
 
-    // Read Mode Editing Prevention
+    // Read Mode Editing Prevention & Mobile Virtual Keyboard Table Deletion (Issue 2)
     editor.addEventListener('beforeinput', e => {
       if (document.body.classList.contains('reading-mode')) {
         e.preventDefault();
         showToast('Document editing is disabled in Read Mode', 'warning');
+        return;
+      }
+      if (e.inputType === 'deleteContentBackward' || e.inputType === 'deleteContentForward') {
+        if (tryRemoveTableOnKey(e.inputType === 'deleteContentForward')) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
       }
     }, true);
 
@@ -3574,6 +4047,17 @@
     editor.addEventListener('input', (e) => {
       saveSelection();
       notifyChange();
+
+      // Safeguard: if any document table has 0 rows or is reduced to 1 empty row during backspace deletion, clean it up completely (Issue 2)
+      if (e.inputType && e.inputType.startsWith('delete')) {
+        editor.querySelectorAll('table:not(.excel-grid-table)').forEach(tbl => {
+          if (!tbl.closest('.excel-spreadsheet-container')) {
+            if (tbl.rows.length === 0 || (tbl.rows.length <= 1 && (tbl.innerText || '').trim() === '')) {
+              removeTableCleanly(tbl);
+            }
+          }
+        });
+      }
 
       const isBreakChar = e.data === ' ' || e.data === '\n' || e.inputType === 'insertParagraph' ||
                           e.data === '.' || e.data === ',' || e.data === '!' || e.data === '?' ||
@@ -3629,8 +4113,17 @@
       updateCursorPos();
     });
 
+    editor.addEventListener('mousedown', e => {
+      if (!e.target.closest('td, th, table')) {
+        window._activeExcelCell = null;
+      }
+    });
+
     editor.addEventListener('click', e => {
       updateCursorPos();
+      if (!e.target.closest('td, th, table')) {
+        window._activeExcelCell = null;
+      }
       const link = e.target.closest('a');
       if (link && editor.contains(link)) {
         const href = link.getAttribute('href');
@@ -3784,11 +4277,19 @@
           }
         }
       } else if (e.key === 'Backspace' || e.key === 'Delete') {
+        // Table Removal Support (Issue 2)
+        if (tryRemoveTableOnKey(e.key === 'Delete')) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+
         const sel = window.getSelection();
         if (sel && sel.rangeCount) {
           const range = sel.getRangeAt(0);
           let node = range.commonAncestorContainer;
           if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+
           const slideCard = node.closest('.pptx-slide-card');
           if (slideCard) {
             const cardText = slideCard.textContent.trim();
@@ -3827,15 +4328,30 @@
       }
     });
 
-    // Selection Change Listener (Keeps formatting buttons in sync with cursor & prevents lost focus - Issue 2)
+    let isSelectingText = false;
+    document.addEventListener('pointerdown', e => {
+      if (editor && editor.contains(e.target)) isSelectingText = true;
+    }, { capture: true, passive: true });
+    document.addEventListener('pointerup', () => { isSelectingText = false; }, { capture: true, passive: true });
+    document.addEventListener('pointercancel', () => { isSelectingText = false; }, { capture: true, passive: true });
+
+    // Selection Change Listener (Keeps formatting buttons in sync with cursor & prevents lost focus - Issue 2 & Issue 3)
     document.addEventListener('selectionchange', () => {
       if (window.DocFlow.currentMode !== 'edit') return;
       try {
         const sel = window.getSelection();
         if (sel && sel.rangeCount > 0 && editor && (editor.contains(sel.getRangeAt(0).commonAncestorContainer) || editor === sel.getRangeAt(0).commonAncestorContainer)) {
           savedSelection = sel.getRangeAt(0).cloneRange();
+          let node = sel.getRangeAt(0).commonAncestorContainer;
+          if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+          const tbl = node ? node.closest?.('table.doc-table, #editor table:not(.excel-grid-table)') : null;
+          if (tbl && !tbl.closest('.excel-spreadsheet-container')) {
+            activeTable = tbl;
+            positionTableHandles(tbl);
+          }
         }
       } catch (e) { }
+      if (isSelectingText) return; // Prevent scroll or DOM work during active user drag/selection
       clearTimeout(selChangeTimer);
       selChangeTimer = setTimeout(() => {
         try {
@@ -3852,7 +4368,7 @@
     initMobileKeyboardClearance();
   }
 
-  // Mobile Virtual Keyboard Scroll Clearance (Issue 1: No auto-scrolling while typing)
+  // Mobile Virtual Keyboard Scroll Clearance & Caret Visibility (Issue 3)
   function initMobileKeyboardClearance() {
     if (typeof window === 'undefined' || !window.visualViewport) return;
 
@@ -3860,15 +4376,26 @@
     if (!editorWrap || !editor) return;
 
     const adjustForKeyboard = () => {
-      if (window.innerWidth > 768 && !window.matchMedia('(pointer: coarse)').matches) return;
+      if (!isMobileView()) return;
 
       const vv = window.visualViewport;
       const keyboardHeight = Math.max(0, window.innerHeight - vv.height);
 
-      if (keyboardHeight > 100) {
-        const bottomPadding = Math.max(keyboardHeight + 40, Math.round(window.innerHeight * 0.45));
+      if (keyboardHeight > 80) {
+        const bottomPadding = Math.max(keyboardHeight + 60, Math.round(window.innerHeight * 0.4));
         editorWrap.style.setProperty('padding-bottom', `${bottomPadding}px`, 'important');
-        editorWrap.style.setProperty('scroll-padding-bottom', `${keyboardHeight + 30}px`, 'important');
+        editorWrap.style.setProperty('scroll-padding-bottom', `${keyboardHeight + 40}px`, 'important');
+
+        // Only adjust scroll if active cursor is obscured beneath the virtual keyboard and user is not selecting text
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode)) {
+          const range = sel.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          if (rect.height > 0 && rect.bottom > vv.height - 24) {
+            const overflow = rect.bottom - (vv.height - 36);
+            editorWrap.scrollTop += overflow;
+          }
+        }
       } else {
         editorWrap.style.removeProperty('padding-bottom');
         editorWrap.style.removeProperty('scroll-padding-bottom');
@@ -3876,15 +4403,16 @@
     };
 
     window.visualViewport.addEventListener('resize', adjustForKeyboard);
-    editor.addEventListener('focus', () => setTimeout(adjustForKeyboard, 300));
   }
 
   // Export module
   window.DocFlow = window.DocFlow || {};
   window.DocFlow.Editor = {
     initEditor,
+    isMobileView,
     saveSelection,
     restoreSelection,
+    getSavedSelection: () => savedSelection,
     setCursorToStart,
     focusEditor,
     insertNodeAtCursor,

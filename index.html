@@ -1879,8 +1879,8 @@
             </div>
           </div>
           <!-- Backward compatible alias button -->
-          <button class="fmt-btn with-text" id="homePptShadowBtn" style="display:none;"
-            title="Toggle PowerPoint Style Text Drop Shadow"><i class="fas fa-font"></i> Shadow</button>
+          <!-- <button class="fmt-btn with-text" id="homePptShadowBtn" style="display:none;"
+            title="Toggle PowerPoint Style Text Drop Shadow"><i class="fas fa-font"></i> Shadow</button> -->
         </div>
       </div>
 
@@ -4534,163 +4534,165 @@
 
   <!-- Shapes Picker Modal (Issue 4 & Issue 5) -->
   <div class="modal-overlay" id="shapeModal">
-    <div class="modal" style="width:560px;" role="dialog" aria-modal="true" aria-label="Insert Vector Shape">
+    <div class="modal shape-modal-responsive" role="dialog" aria-modal="true" aria-label="Insert Vector Shape">
       <h3><i class="fas fa-shapes" style="margin-right:8px;color:#8b5cf6;"></i>Insert Vector Shape</h3>
       <p style="font-size:12px;color:var(--text-muted);margin:4px 0 12px;">Choose a standard shape or design a custom
         parametric shape with live real-time preview.</p>
 
-      <!-- 12 Shapes in a clean 6x2 Grid -->
-      <div style="display:grid;grid-template-columns:repeat(6, 1fr);gap:8px;margin-bottom:14px;" id="shapesGrid">
-        <button class="shape-opt-btn active" data-shape="rectangle" title="Rectangle"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-square" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Rectangle</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="rounded-rect" title="Rounded Rectangle"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-square-full" style="font-size:20px;border-radius:4px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Rounded</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="circle" title="Circle"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-circle" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Circle</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="triangle" title="Triangle"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-play" style="font-size:18px;transform:rotate(-90deg);color:var(--accent);"></i>
-          <span style="font-size:10px;">Triangle</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="diamond" title="Diamond"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-diamond" style="font-size:18px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Diamond</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="star" title="Star"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-star" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Star</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="arrow-right" title="Arrow Right"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-arrow-right" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Arrow</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="hexagon" title="Hexagon"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-draw-polygon" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Hexagon</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="callout" title="Callout / Speech Bubble"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-comment" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Callout</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="heart" title="Heart"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-heart" style="font-size:18px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Heart</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="cross" title="Cross / Plus Sign"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-plus" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Cross</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="arrow-left" title="Arrow Left"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-arrow-left" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Arrow Left</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="arrow-up" title="Arrow Up"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-arrow-up" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Arrow Up</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="arrow-down" title="Arrow Down"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-arrow-down" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Arrow Down</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="pentagon" title="Pentagon"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-draw-polygon" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Pentagon</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="cloud" title="Cloud"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-cloud" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Cloud</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="lightning" title="Lightning Bolt"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-bolt" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Lightning</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="sun" title="Sun / Starburst"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-sun" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Sun</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="cylinder" title="Cylinder"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-database" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Cylinder</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="parallelogram" title="Parallelogram"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-shapes" style="font-size:20px;color:var(--accent);transform:skewX(-15deg);"></i>
-          <span style="font-size:10px;">Parallelogram</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="trapezoid" title="Trapezoid"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-vector-square" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Trapezoid</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="octagon" title="Octagon"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-stop" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Octagon</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="oval" title="Oval / Ellipse"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-egg" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Oval</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="badge" title="Shield / Badge"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-certificate" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Badge</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="crescent" title="Crescent Moon"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-moon" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Crescent</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="check" title="Checkmark"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-check" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Check</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="tag" title="Tag / Label"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-tag" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Tag</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="cube" title="Isometric Cube"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-cube" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Cube</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="double-arrow" title="Double Arrow"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-arrows-left-right" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;">Double Arrow</span>
-        </button>
-        <button class="shape-opt-btn" data-shape="parametric" title="Custom Parametric Shape"
-          style="padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:var(--bg-tertiary);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-primary);">
-          <i class="fas fa-sliders" style="font-size:20px;color:var(--accent);"></i>
-          <span style="font-size:10px;font-weight:700;">Custom</span>
-        </button>
+      <!-- Scrollable Shapes Grid (Issue 4) -->
+      <div class="shapes-scroll-container">
+        <div id="shapesGrid">
+          <button class="shape-opt-btn active" data-shape="rectangle" title="Rectangle">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-square" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Rectangle</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="rounded-rect" title="Rounded Rectangle">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-square-full" style="font-size:20px;border-radius:4px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Rounded</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="circle" title="Circle">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-circle" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Circle</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="triangle" title="Triangle">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-play" style="font-size:18px;transform:rotate(-90deg);color:var(--accent);"></i>
+            <span style="font-size:10px;">Triangle</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="diamond" title="Diamond">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-diamond" style="font-size:18px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Diamond</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="star" title="Star">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-star" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Star</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="arrow-right" title="Arrow Right">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-arrow-right" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Arrow</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="hexagon" title="Hexagon">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-draw-polygon" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Hexagon</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="callout" title="Callout / Speech Bubble">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-comment" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Callout</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="heart" title="Heart">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-heart" style="font-size:18px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Heart</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="cross" title="Cross / Plus Sign">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-plus" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Cross</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="arrow-left" title="Arrow Left">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-arrow-left" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Arrow Left</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="arrow-up" title="Arrow Up">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-arrow-up" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Arrow Up</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="arrow-down" title="Arrow Down">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-arrow-down" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Arrow Down</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="pentagon" title="Pentagon">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-draw-polygon" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Pentagon</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="cloud" title="Cloud">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-cloud" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Cloud</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="lightning" title="Lightning Bolt">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-bolt" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Lightning</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="sun" title="Sun / Starburst">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-sun" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Sun</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="cylinder" title="Cylinder">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-database" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Cylinder</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="parallelogram" title="Parallelogram">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-shapes" style="font-size:20px;color:var(--accent);transform:skewX(-15deg);"></i>
+            <span style="font-size:10px;">Parallelogram</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="trapezoid" title="Trapezoid">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-vector-square" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Trapezoid</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="octagon" title="Octagon">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-stop" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Octagon</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="oval" title="Oval / Ellipse">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-egg" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Oval</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="badge" title="Shield / Badge">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-certificate" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Badge</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="crescent" title="Crescent Moon">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-moon" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Crescent</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="check" title="Checkmark">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-check" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Check</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="tag" title="Tag / Label">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-tag" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Tag</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="cube" title="Isometric Cube">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-cube" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Cube</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="double-arrow" title="Double Arrow">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-arrows-left-right" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;">Double Arrow</span>
+          </button>
+          <button class="shape-opt-btn" data-shape="parametric" title="Custom Parametric Shape">
+            <span class="shape-check-badge"><i class="fas fa-check"></i></span>
+            <i class="fas fa-sliders" style="font-size:20px;color:var(--accent);"></i>
+            <span style="font-size:10px;font-weight:700;">Custom</span>
+          </button>
+        </div>
       </div>
 
       <!-- Live Shape Preview Box -->
@@ -4780,8 +4782,8 @@
         </div>
       </div>
 
-      <div style="display:flex;gap:16px;align-items:center;margin-bottom:14px;">
-        <div style="flex:1;">
+      <div class="shape-options-grid">
+        <div>
           <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Fill Color:</label>
           <div style="display:flex;align-items:center;gap:8px;">
             <input type="color" id="shapeFillColor" value="#e85d04"
@@ -4790,7 +4792,7 @@
               style="width:75px;height:30px;padding:0 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg-tertiary);color:var(--text-primary);font-size:12px;font-family:monospace;">
           </div>
         </div>
-        <div style="flex:1;">
+        <div>
           <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Border / Outline:</label>
           <div style="display:flex;align-items:center;gap:8px;">
             <input type="color" id="shapeStrokeColor" value="#d45500"
@@ -4803,7 +4805,7 @@
             </select>
           </div>
         </div>
-        <div style="flex:1;">
+        <div>
           <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Initial Size:</label>
           <select id="shapeSizeSelect" class="fmt-select" style="width:100%;height:30px;">
             <option value="120">Medium (120px)</option>
@@ -4812,7 +4814,7 @@
             <option value="260">X-Large (260px)</option>
           </select>
         </div>
-        <div style="flex:1;">
+        <div>
           <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">Shape Shadow:</label>
           <select id="shapeShadowSelect" class="fmt-select" style="width:100%;height:30px;">
             <option value="none">None</option>

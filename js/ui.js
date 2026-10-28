@@ -140,8 +140,8 @@
     const modal = typeof modalId === 'string' ? $(modalId) : modalId;
     if (modal) {
       modal.classList.remove('show');
-      const isMobile = window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches;
-      if (!isMobile && window.DocFlow && window.DocFlow.Editor && window.DocFlow.currentMode === 'edit') {
+      const isMobile = (window.DocFlow?.Editor?.isMobileView ? window.DocFlow.Editor.isMobileView() : (window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window) || navigator.maxTouchPoints > 0));
+      if (!isMobile && modalId !== '#headerFooterModal' && window.DocFlow && window.DocFlow.Editor && window.DocFlow.currentMode === 'edit') {
         window.DocFlow.Editor.focusEditor();
       } else if (!isMobile && lastActiveElement && typeof lastActiveElement.focus === 'function') {
         try { lastActiveElement.focus(); } catch (e) { }
@@ -961,8 +961,15 @@
       }
     }, { capture: true, passive: false });
 
+    let isWindowSelecting = false;
+    window.addEventListener('pointerdown', () => { isWindowSelecting = true; }, { capture: true, passive: true });
+    window.addEventListener('pointerup', () => { isWindowSelecting = false; }, { capture: true, passive: true });
+    window.addEventListener('pointercancel', () => { isWindowSelecting = false; }, { capture: true, passive: true });
+
     // Keep the overall application layout strictly fixed at (0,0) without shifting
     window.addEventListener('scroll', () => {
+      const isMobile = (window.DocFlow?.Editor?.isMobileView ? window.DocFlow.Editor.isMobileView() : (window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window) || navigator.maxTouchPoints > 0));
+      if (isMobile || isWindowSelecting) return; // Do not fight text selection drag or mobile virtual keyboard (Issue 3)
       if (window.scrollX !== 0 || window.scrollY !== 0) {
         window.scrollTo(0, 0);
       }

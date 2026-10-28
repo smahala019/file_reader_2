@@ -154,19 +154,35 @@
 .toast-warning { background: linear-gradient(135deg, #b45309, #d97706); }
 .toast-info    { background: linear-gradient(135deg, #1d4ed8, #2563eb); }
 
-@media (max-width: 480px) {
+@media (max-width: 768px) {
   .toast-container {
     bottom: 16px;
-    right: 12px;
-    left: 12px;
+    right: 16px;
+    left: 16px;
     top: auto;
     max-width: none;
+    align-items: center;
+    pointer-events: none;
   }
   .toast {
-    max-width: 100%;
-    width: 100%;
-    padding: 9px 12px;
+    max-width: min(380px, calc(100vw - 32px));
+    width: auto;
+    padding: 9px 14px;
     font-size: 12px;
+    border-radius: 8px;
+    margin: 0 auto;
+    align-self: center;
+    box-sizing: border-box;
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  .toast.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  .toast.toast-closing {
+    transform: translateY(20px);
+    opacity: 0;
   }
 }
 
@@ -1449,6 +1465,125 @@
   }
   #quickCanvasWrapper canvas {
     max-height: 45vh !important;
+  }
+}
+
+/* Responsive Shape Modal & Scrollable Shapes Container (a.txt Issue 4) */
+#shapeModal .modal.shape-modal-responsive {
+  width: 580px;
+  max-width: min(580px, calc(100vw - 20px)) !important;
+  max-height: min(92vh, 680px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  padding: 16px 18px !important;
+  box-sizing: border-box !important;
+}
+
+#shapeModal .shapes-scroll-container {
+  max-height: 165px;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  padding: 6px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+#shapeModal #shapesGrid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+
+.shape-opt-btn {
+  position: relative;
+  padding: 10px 4px !important;
+  border: 1.5px solid var(--border) !important;
+  border-radius: 8px !important;
+  background: var(--bg-tertiary) !important;
+  cursor: pointer !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  color: var(--text-primary) !important;
+  transition: all 0.15s ease-in-out !important;
+  user-select: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+.shape-opt-btn:hover {
+  border-color: var(--accent, #0284c7) !important;
+  background: rgba(2, 132, 199, 0.08) !important;
+}
+
+.shape-opt-btn.active {
+  border-color: var(--accent, #0284c7) !important;
+  background: rgba(2, 132, 199, 0.16) !important;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.35) !important;
+  color: var(--accent, #0284c7) !important;
+}
+
+.shape-opt-btn .shape-check-badge {
+  display: none;
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent, #0284c7);
+  color: #ffffff;
+  font-size: 9px;
+  line-height: 16px;
+  text-align: center;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.shape-opt-btn.active .shape-check-badge {
+  display: flex !important;
+}
+
+.shape-modal-responsive .shape-options-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 600px) {
+  #shapeModal .modal.shape-modal-responsive {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100dvh - 20px) !important;
+    padding: 12px 14px !important;
+  }
+  #shapeModal .shapes-scroll-container {
+    max-height: 140px;
+  }
+  #shapeModal #shapesGrid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .shape-modal-responsive .shape-options-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  #shapeModal #shapesGrid {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 

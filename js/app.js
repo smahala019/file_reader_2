@@ -1926,6 +1926,12 @@
 
   // Ribbon Tab Switching & Control Coordination
   function switchRibbonTab(tabName) {
+    if (window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window) || (navigator.maxTouchPoints > 0)) {
+      const ed = $('#editor');
+      if (document.activeElement && (document.activeElement === ed || document.activeElement.isContentEditable || document.activeElement.closest?.('#editor, .excel-grid-table'))) {
+        document.activeElement.blur();
+      }
+    }
     $$('.ribbon-tab-btn').forEach(btn => {
       const isActive = btn.dataset.ribbon === tabName;
       btn.classList.toggle('active', isActive);
@@ -4011,28 +4017,54 @@
   }
 
   function getActiveTableCell() {
-    if (window._activeExcelCell && document.body.contains(window._activeExcelCell)) {
-      return window._activeExcelCell;
-    }
-    const selected = document.querySelector('.excel-spreadsheet-container td.excel-cell-selected');
-    if (selected) {
-      window._activeExcelCell = selected;
-      return selected;
-    }
+    const isExcelDoc = document.body.dataset.mode === 'excel' || !!document.querySelector('#editor .excel-spreadsheet-container');
     const sel = window.getSelection();
+    let currentCell = null;
+    let nodeInsideEditor = null;
+
     if (sel && sel.rangeCount) {
       let node = sel.getRangeAt(0).commonAncestorContainer;
       if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
-      const cell = node?.closest('td, th');
-      if (cell) {
-        if (cell.tagName === 'TD') window._activeExcelCell = cell;
-        return cell;
+      if (node && document.getElementById('editor')?.contains(node)) {
+        nodeInsideEditor = node;
+        currentCell = node.closest('td, th');
       }
     }
-    const firstCell = document.querySelector('.excel-spreadsheet-container tbody td');
-    if (firstCell) {
-      window._activeExcelCell = firstCell;
-      return firstCell;
+    if (!nodeInsideEditor && window.DocFlow?.Editor?.getSavedSelection) {
+      const saved = window.DocFlow.Editor.getSavedSelection();
+      if (saved) {
+        let node = saved.commonAncestorContainer;
+        if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+        if (node && document.getElementById('editor')?.contains(node)) {
+          nodeInsideEditor = node;
+          currentCell = node.closest('td, th');
+        }
+      }
+    }
+    if (currentCell) {
+      if (currentCell.tagName === 'TD') window._activeExcelCell = currentCell;
+      return currentCell;
+    }
+    // If user selection/focus/caret is inside the editor text outside of any cell, user is definitely OUTSIDE table!
+    if (nodeInsideEditor && !nodeInsideEditor.closest('td, th')) {
+      window._activeExcelCell = null;
+      return null;
+    }
+    // In dedicated Excel spreadsheet mode only (full spreadsheet document where no text exists outside):
+    if (isExcelDoc && document.body.dataset.mode === 'excel') {
+      if (window._activeExcelCell && document.body.contains(window._activeExcelCell)) {
+        return window._activeExcelCell;
+      }
+      const selected = document.querySelector('.excel-spreadsheet-container td.excel-cell-selected');
+      if (selected) {
+        window._activeExcelCell = selected;
+        return selected;
+      }
+      const firstCell = document.querySelector('.excel-spreadsheet-container tbody td');
+      if (firstCell) {
+        window._activeExcelCell = firstCell;
+        return firstCell;
+      }
     }
     return null;
   }
@@ -7866,8 +7898,24 @@
       header.setAttribute('contenteditable', 'false');
       const val = titleText !== undefined && titleText !== null ? titleText.trim() : '';
       header.innerHTML = `
-        <button type="button" class="df-hf-delete-btn" title="Remove Header" contenteditable="false"><i class="fas fa-times"></i></button>
+        <button type="button" class="df-hf-delete-btn" tabindex="-1" title="Remove Header" contenteditable="false"><i class="fas fa-times"></i></button>
         <div class="doc-header-editable" contenteditable="true" spellcheck="false" data-placeholder="Type Header..." title="Click to write header text (Press Enter for new line)">${escHtml(val)}</div>`;
+
+      // Prevent non-editable parts of header container or buttons from focusing editor or opening keyboard on mobile (Issue 1)
+      const preventUnwantedMobileKeyboard = (e) => {
+        if (!e.target.closest('.doc-header-editable')) {
+          e.stopPropagation();
+          if (e.target.closest('.df-hf-delete-btn') || e.type === 'touchstart' || e.type === 'pointerdown' || e.type === 'mousedown') {
+            e.preventDefault();
+          }
+          if (document.activeElement && (document.activeElement.isContentEditable || document.activeElement.closest?.('#editor, [contenteditable="true"]'))) {
+            try { document.activeElement.blur(); } catch (_) {}
+          }
+        }
+      };
+      header.addEventListener('touchstart', preventUnwantedMobileKeyboard, { passive: false });
+      header.addEventListener('pointerdown', preventUnwantedMobileKeyboard);
+      header.addEventListener('mousedown', preventUnwantedMobileKeyboard);
 
       const editable = header.querySelector('.doc-header-editable');
       editable?.addEventListener('keydown', (e) => {
@@ -7887,8 +7935,24 @@
       footer.setAttribute('contenteditable', 'false');
       const val = footText !== undefined && footText !== null ? footText.trim() : '';
       footer.innerHTML = `
-        <button type="button" class="df-hf-delete-btn" title="Remove Footer" contenteditable="false"><i class="fas fa-times"></i></button>
+        <button type="button" class="df-hf-delete-btn" tabindex="-1" title="Remove Footer" contenteditable="false"><i class="fas fa-times"></i></button>
         <div class="doc-footer-editable" contenteditable="true" spellcheck="false" data-placeholder="Type Footer..." title="Click to write footer text (Press Enter for new line)">${escHtml(val)}</div>`;
+
+      // Prevent non-editable parts of footer container or buttons from focusing editor or opening keyboard on mobile (Issue 1)
+      const preventUnwantedMobileKeyboard = (e) => {
+        if (!e.target.closest('.doc-footer-editable')) {
+          e.stopPropagation();
+          if (e.target.closest('.df-hf-delete-btn') || e.type === 'touchstart' || e.type === 'pointerdown' || e.type === 'mousedown') {
+            e.preventDefault();
+          }
+          if (document.activeElement && (document.activeElement.isContentEditable || document.activeElement.closest?.('#editor, [contenteditable="true"]'))) {
+            try { document.activeElement.blur(); } catch (_) {}
+          }
+        }
+      };
+      footer.addEventListener('touchstart', preventUnwantedMobileKeyboard, { passive: false });
+      footer.addEventListener('pointerdown', preventUnwantedMobileKeyboard);
+      footer.addEventListener('mousedown', preventUnwantedMobileKeyboard);
 
       const editable = footer.querySelector('.doc-footer-editable');
       editable?.addEventListener('keydown', (e) => {
@@ -8121,13 +8185,14 @@
       showToast('Headers and footers removed', 'info');
     });
 
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('#layoutHeaderFooterDropdownWrap')) {
-        $('#layoutHeaderFooterPopover')?.classList.remove('show');
-      }
+    const handleHfDelete = (e) => {
       const delBtn = e.target.closest('.df-hf-delete-btn');
       if (delBtn) {
+        e.preventDefault();
         e.stopPropagation();
+        if (document.activeElement && (document.activeElement.isContentEditable || document.activeElement.closest?.('#editor, [contenteditable="true"]'))) {
+          try { document.activeElement.blur(); } catch (_) {}
+        }
         const headerOrFooter = delBtn.closest('.doc-header-area, .doc-footer-area, .df-page-header, .df-page-footer');
         if (headerOrFooter) {
           window.DocFlow.Editor?.saveSnapshot?.(true);
@@ -8138,7 +8203,16 @@
           showToast((isH ? 'Header' : 'Footer') + ' removed', 'info');
         }
       }
+    };
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#layoutHeaderFooterDropdownWrap')) {
+        $('#layoutHeaderFooterPopover')?.classList.remove('show');
+      }
+      handleHfDelete(e);
     });
+    document.addEventListener('touchstart', handleHfDelete, { passive: false });
+    document.addEventListener('pointerdown', handleHfDelete);
 
     $('#layoutPageBgBtn')?.addEventListener('click', () => {
       $('#layoutPageBgInput')?.click();

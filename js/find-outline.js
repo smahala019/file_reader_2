@@ -220,6 +220,12 @@
     }
   }
 
+  function isWatermarkNode(node) {
+    if (!node) return false;
+    const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+    return !!el?.closest?.('.doc-watermark-overlay, [data-watermark], .watermark-text, .excel-watermark-overlay');
+  }
+
   function performFind() {
     clearFindHighlights();
     clearPdfFindHighlights();
@@ -243,13 +249,18 @@
 
     if (!editor) return;
 
-    // Collect all text nodes
-    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null, false);
+    // Collect all text nodes, strictly excluding any watermark nodes (Issue 5)
+    const filter = {
+      acceptNode(node) {
+        if (!node.textContent || !node.textContent.trim()) return NodeFilter.FILTER_REJECT;
+        if (isWatermarkNode(node)) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    };
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, filter, false);
     const textNodes = [];
     while (walker.nextNode()) {
-      if (walker.currentNode.textContent.trim()) {
-        textNodes.push(walker.currentNode);
-      }
+      textNodes.push(walker.currentNode);
     }
 
     const lowerTerm = term.toLowerCase();
@@ -386,7 +397,13 @@
   }
 
   function replaceTextInNode(root, findStr, replaceStr) {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+    const filter = {
+      acceptNode(node) {
+        if (isWatermarkNode(node)) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    };
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, filter, false);
     const textNodes = [];
     while (walker.nextNode()) {
       if (walker.currentNode.textContent.toLowerCase().includes(findStr.toLowerCase())) {
@@ -575,7 +592,14 @@
       return;
     }
 
-    const text = editor.innerText || '';
+    let text = '';
+    try {
+      const clone = editor.cloneNode(true);
+      clone.querySelectorAll('.doc-watermark-overlay, [data-watermark], .excel-watermark-overlay').forEach(el => el.remove());
+      text = clone.innerText || '';
+    } catch (_) {
+      text = editor.innerText || '';
+    }
     const words = text.trim() ? text.trim().split(/\s+/).filter(Boolean).length : 0;
     const chars = text.length;
     const charsNoSpaces = text.replace(/\s/g, '').length;

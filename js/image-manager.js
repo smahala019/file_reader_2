@@ -1404,7 +1404,33 @@
     editor.querySelectorAll('.doc-shape-container, .doc-chart-container').forEach(attachShapeListeners);
     editor.querySelectorAll('hr, .doc-custom-line, .doc-custom-note, .doc-interactive-note, .onenote-sticky-note, .excel-floating-note, .doc-note-card').forEach(attachLineListeners);
 
+    let lastLineTouchTime = 0;
+    const handleLineTouchSelect = (e) => {
+      const lineTarget = e.target.closest('hr, .doc-custom-line, .doc-custom-note, .doc-interactive-note, .onenote-sticky-note, .excel-floating-note, .doc-note-card');
+      if (lineTarget && editor && editor.contains(lineTarget)) {
+        if (!e.target.closest('.doc-note-close-btn, .excel-note-close-btn, .doc-note-color-input, .doc-note-hidden-color, .doc-note-hidden-header-color')) {
+          lastLineTouchTime = Date.now();
+          selectLine(lineTarget);
+          if (document.activeElement && (document.activeElement.isContentEditable || document.activeElement.closest?.('#editor, [contenteditable="true"]'))) {
+            try { document.activeElement.blur(); } catch (_) {}
+          }
+        }
+      }
+    };
+    document.addEventListener('touchstart', handleLineTouchSelect, { passive: true });
+    document.addEventListener('pointerdown', handleLineTouchSelect, { passive: true });
+
     document.addEventListener('click', e => {
+      const lineTarget = e.target.closest('hr, .doc-custom-line, .doc-custom-note, .doc-interactive-note, .onenote-sticky-note, .excel-floating-note, .doc-note-card');
+      if (lineTarget && editor && editor.contains(lineTarget)) {
+        if (!e.target.closest('.doc-note-close-btn, .excel-note-close-btn, .doc-note-color-input, .doc-note-hidden-color, .doc-note-hidden-header-color')) {
+          selectLine(lineTarget);
+          return;
+        }
+      }
+      if (Date.now() - lastLineTouchTime < 450) {
+        return; // Prevent touch click slop from prematurely deselecting the tapped line on mobile
+      }
       if (selectedImage && !e.target.closest('.df-img-toolbar') && !e.target.closest('.df-resize-handle') && !e.target.closest('.df-img-move-handle') && e.target !== selectedImage && !selectedImage.contains(e.target)) {
         deselectImage();
       }
@@ -1532,10 +1558,12 @@
       if (e.target.closest('.doc-note-close-btn, .excel-note-close-btn, .doc-note-color-input, .doc-note-hidden-color, .doc-note-hidden-header-color')) {
         return;
       }
-      if (selectedLine !== line) {
+      if (selectedLine !== line || !activeLinePlusBtn || activeLineResizeHandles.length === 0) {
         selectLine(line);
       } else {
         positionLineHandles(line);
+        if (activeLinePlusBtn) activeLinePlusBtn.style.display = 'flex';
+        activeLineResizeHandles.forEach(h => h.style.display = 'block');
       }
     });
 
@@ -1696,11 +1724,13 @@
       document.addEventListener('touchend', onLineMoveEnd);
     });
 
-    // 2. Corner/End Resize Handles (left and right)
-    ['left', 'right'].forEach(side => {
+    // 2. Boundary Resize Handles in both directions: horizontal & vertical (Issue 4)
+    const sides = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+    sides.forEach(side => {
       const handle = document.createElement('div');
       handle.className = `df-line-resize-handle ${side}`;
-      handle.title = isNoteElement(line) ? 'Drag to resize note width and height' : 'Drag to adjust line width and thickness';
+      handle.dataset.side = side;
+      handle.title = isNoteElement(line) ? 'Drag to resize note horizontally and vertically' : 'Drag to adjust line width and thickness in both directions';
       document.body.appendChild(handle);
       activeLineResizeHandles.push(handle);
 
@@ -1709,23 +1739,30 @@
       const onResize = e => {
         const clientX = e.clientX || (e.touches && e.touches[0].clientX);
         const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-        if (!clientX) return;
+        if (clientX === undefined || clientY === undefined) return;
 
         const dx = clientX - startX;
         const dy = clientY - startY;
 
         const isNote = isNoteElement(line);
         if (isNote) {
-          let newW = side === 'right' ? Math.max(140, startW + dx) : Math.max(140, startW - dx);
+          let newW = startW;
+          let newH = startH;
+          if (['e', 'ne', 'se'].includes(side)) newW = Math.max(120, startW + dx);
+          if (['w', 'nw', 'sw'].includes(side)) newW = Math.max(120, startW - dx);
+          if (['s', 'se', 'sw'].includes(side)) newH = Math.max(50, startH + dy);
+          if (['n', 'ne', 'nw'].includes(side)) newH = Math.max(50, startH - dy);
           line.style.width = newW + 'px';
-          let newH = Math.max(60, startH + dy);
           line.style.height = newH + 'px';
           line.style.minHeight = newH + 'px';
         } else {
-          let newW = side === 'right' ? Math.max(40, startW + dx) : Math.max(40, startW - dx);
+          let newW = startW;
+          let newH = startH;
+          if (['e', 'ne', 'se'].includes(side)) newW = Math.max(30, startW + dx);
+          if (['w', 'nw', 'sw'].includes(side)) newW = Math.max(30, startW - dx);
+          if (['s', 'se', 'sw'].includes(side)) newH = Math.max(1, Math.min(60, Math.round(startH + dy)));
+          if (['n', 'ne', 'nw'].includes(side)) newH = Math.max(1, Math.min(60, Math.round(startH - dy)));
           line.style.width = newW + 'px';
-
-          let newH = Math.max(1, Math.min(24, Math.round(startH + Math.abs(dy) / 4)));
           line.style.height = newH + 'px';
           line.style.borderTopWidth = newH + 'px';
         }
@@ -1749,7 +1786,7 @@
         startY = e.clientY;
         startW = line.offsetWidth;
         const isNote = isNoteElement(line);
-        startH = isNote ? line.offsetHeight : parseInt(line.style.borderTopWidth || line.style.height || '2', 10);
+        startH = isNote ? line.offsetHeight : (parseInt(line.style.borderTopWidth || line.style.height || '2', 10) || line.offsetHeight || 2);
         document.addEventListener('mousemove', onResize);
         document.addEventListener('mouseup', onResizeEnd);
       });
@@ -1762,7 +1799,7 @@
         startY = e.touches[0].clientY;
         startW = line.offsetWidth;
         const isNote = isNoteElement(line);
-        startH = isNote ? line.offsetHeight : parseInt(line.style.borderTopWidth || line.style.height || '2', 10);
+        startH = isNote ? line.offsetHeight : (parseInt(line.style.borderTopWidth || line.style.height || '2', 10) || line.offsetHeight || 2);
         document.addEventListener('touchmove', onResize, { passive: false });
         document.addEventListener('touchend', onResizeEnd);
         document.addEventListener('touchcancel', onResizeEnd);
@@ -1777,11 +1814,14 @@
     document.body.appendChild(plusBtn);
     activeLinePlusBtn = plusBtn;
 
-    plusBtn.addEventListener('click', e => {
+    const onPlusTrigger = (e) => {
       e.preventDefault();
       e.stopPropagation();
       toggleLinePopover(line);
-    });
+    };
+    plusBtn.addEventListener('click', onPlusTrigger);
+    plusBtn.addEventListener('touchstart', onPlusTrigger, { passive: false });
+    plusBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
 
     positionLineHandles(line);
   }
@@ -1801,23 +1841,35 @@
       } else {
         activeLineMoveHandle.style.display = 'flex';
         activeLineMoveHandle.style.left = (rect.left + (rect.width / 2) - 14) + 'px';
-        activeLineMoveHandle.style.top = (rect.top - 32) + 'px';
+        activeLineMoveHandle.style.top = Math.max(48, rect.top - 32) + 'px';
       }
     }
 
-    if (activeLineResizeHandles.length === 2) {
+    const isMobile = window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches;
+    const r = isMobile ? 5.5 : 5;
+
+    activeLineResizeHandles.forEach(handle => {
       if (isOutOfView) {
-        activeLineResizeHandles[0].style.display = 'none';
-        activeLineResizeHandles[1].style.display = 'none';
-      } else {
-        activeLineResizeHandles[0].style.display = 'block';
-        activeLineResizeHandles[1].style.display = 'block';
-        activeLineResizeHandles[0].style.left = (rect.left - 6) + 'px';
-        activeLineResizeHandles[0].style.top = (rect.top + (rect.height / 2) - 6) + 'px';
-        activeLineResizeHandles[1].style.left = (rect.right - 6) + 'px';
-        activeLineResizeHandles[1].style.top = (rect.top + (rect.height / 2) - 6) + 'px';
+        handle.style.display = 'none';
+        return;
       }
-    }
+      handle.style.display = 'block';
+      const side = handle.dataset.side;
+      let posX = 0, posY = 0;
+      switch (side) {
+        case 'nw': posX = rect.left - r; posY = rect.top - r; break;
+        case 'n':  posX = rect.left + rect.width / 2 - r; posY = rect.top - r; break;
+        case 'ne': posX = rect.right - r; posY = rect.top - r; break;
+        case 'e':  posX = rect.right - r; posY = rect.top + rect.height / 2 - r; break;
+        case 'se': posX = rect.right - r; posY = rect.bottom - r; break;
+        case 's':  posX = rect.left + rect.width / 2 - r; posY = rect.bottom - r; break;
+        case 'sw': posX = rect.left - r; posY = rect.bottom - r; break;
+        case 'w':  posX = rect.left - r; posY = rect.top + rect.height / 2 - r; break;
+        default:   posX = rect.right - r; posY = rect.top - r; break;
+      }
+      handle.style.left = Math.round(posX) + 'px';
+      handle.style.top = Math.round(posY) + 'px';
+    });
 
     const isNote = isNoteElement(line);
 
@@ -1826,18 +1878,12 @@
         activeLinePlusBtn.style.display = 'none';
       } else {
         activeLinePlusBtn.style.display = 'flex';
-        if (isNote) {
-          let plusLeft = rect.right + 8;
-          if (plusLeft + 28 > window.innerWidth) {
-            plusLeft = rect.right - 28;
-          }
-          activeLinePlusBtn.style.left = plusLeft + 'px';
-          // Scrolls naturally along with note body without being clamped
-          activeLinePlusBtn.style.top = (rect.top - 6) + 'px';
-        } else {
-          activeLinePlusBtn.style.left = (rect.right + 12) + 'px';
-          activeLinePlusBtn.style.top = (rect.top - 12) + 'px';
+        let plusLeft = rect.right + 8;
+        if (plusLeft + 32 > window.innerWidth) {
+          plusLeft = Math.max(8, window.innerWidth - 36);
         }
+        activeLinePlusBtn.style.left = plusLeft + 'px';
+        activeLinePlusBtn.style.top = Math.max(48, (isNote ? rect.top - 6 : rect.top - 14)) + 'px';
       }
     }
 

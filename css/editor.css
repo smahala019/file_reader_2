@@ -23,9 +23,7 @@
 }
 
 .editor-wrap.visible {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: block;
 }
 
 /* Document Paper Canvas — Opens full container size, never "half document" */
@@ -47,6 +45,7 @@
   overflow-wrap: break-word;
   caret-color: var(--accent);
   position: relative;
+  overflow-anchor: none !important;
   transition: box-shadow 0.2s ease, width 0.2s ease, padding 0.2s ease;
   flex-shrink: 0;
 }
@@ -217,12 +216,17 @@
   overflow-wrap: break-word !important;
 }
 
+.editor-page table:not(.excel-grid-table) tr,
+.doc-table tr {
+  min-height: 38px;
+}
+
 .editor-page td:not(.excel-grid-table td),
 .editor-page th:not(.excel-grid-table th),
 .doc-table td,
 .doc-table th {
-  border: 1px solid var(--border, #ccc);
-  padding: 8px 12px;
+  border: 2px solid var(--border, #94a3b8);
+  padding: 10px 14px;
   text-align: left;
   color: var(--text-primary, #1a1a1a);
   font-size: 14px;
@@ -230,6 +234,7 @@
   overflow-wrap: break-word !important;
   box-sizing: border-box !important;
   max-width: 100% !important;
+  min-height: 38px;
 }
 
 .editor-page th,
@@ -255,7 +260,7 @@
 
 .editor-page hr {
   border: none;
-  border-top: 2px solid #e2e8f0;
+  border-top: 3px solid #94a3b8;
   margin: 24px 0;
 }
 
@@ -1172,11 +1177,44 @@ li input[type="checkbox"]:checked ~ span {
   background: var(--accent-hover);
 }
 
-/* Custom Horizontal Line Management (Issue 4 & Issue 6) */
+/* Table Selection for Deletion (Issue 2) */
+table.df-table-selected,
+#editor table.df-table-selected {
+  outline: 2px solid var(--accent, #0284c7) !important;
+  outline-offset: 2px !important;
+}
+
+/* Custom Horizontal Line Management (Issue 4) */
+hr,
 .doc-custom-line {
   margin: 16px auto;
   border: none;
   display: block;
+  position: relative;
+  cursor: pointer;
+}
+
+/* Extended hit area so clicking on thin line always works reliably on mobile and desktop (Issue 4) */
+hr::before,
+.doc-custom-line::before {
+  content: '';
+  position: absolute;
+  top: -24px;
+  bottom: -24px;
+  left: 0;
+  right: 0;
+  cursor: pointer;
+  z-index: 5;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+@media (max-width: 768px), (pointer: coarse) {
+  hr::before,
+  .doc-custom-line::before {
+    top: -30px;
+    bottom: -30px;
+  }
 }
 
 .df-selected-line {
@@ -1193,7 +1231,7 @@ li input[type="checkbox"]:checked ~ span {
   border: 2px solid #ffffff;
   border-radius: 50%;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  z-index: 45;
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1210,33 +1248,60 @@ li input[type="checkbox"]:checked ~ span {
 
 .df-line-resize-handle {
   position: fixed;
-  width: 12px;
-  height: 12px;
-  background: var(--accent);
+  width: 11px;
+  height: 11px;
+  background: var(--accent, #0284c7);
   border: 2px solid #ffffff;
   border-radius: 50%;
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
-  z-index: 45;
+  z-index: 999;
   pointer-events: auto;
   touch-action: none;
+  box-sizing: border-box;
+}
+
+.df-line-resize-handle::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
+}
+
+.df-line-resize-handle.nw,
+.df-line-resize-handle.se {
+  cursor: nwse-resize !important;
+}
+.df-line-resize-handle.ne,
+.df-line-resize-handle.sw {
+  cursor: nesw-resize !important;
+}
+.df-line-resize-handle.n,
+.df-line-resize-handle.s {
+  cursor: ns-resize !important;
+}
+.df-line-resize-handle.e,
+.df-line-resize-handle.w,
+.df-line-resize-handle.left,
+.df-line-resize-handle.right {
   cursor: ew-resize !important;
 }
 
 .df-line-plus-btn {
   position: fixed;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   background: var(--accent);
   color: #ffffff;
   border: 2px solid #ffffff;
   border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-  z-index: 45;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  z-index: 1001;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
+  user-select: none;
+  touch-action: manipulation;
   transition: transform 0.15s ease, background 0.15s ease;
 }
 .df-line-plus-btn:hover {
@@ -2022,6 +2087,7 @@ body.df-focus-mode .tab-bar:hover {
   .df-line-popover,
   .df-table-move-handle,
   .df-table-corner-handle,
+  .df-table-delete-btn,
   #dfTableResizeGuide,
   .df-hf-delete-btn,
   .excel-note-close-btn,
@@ -3833,9 +3899,13 @@ body.is-table-resizing-row * {
   cursor: row-resize !important;
   user-select: none !important;
 }
-body.is-excel-resizing,
-body.is-excel-resizing * {
-  cursor: none !important;
+body.is-excel-resizing.is-table-resizing-col,
+body.is-excel-resizing.is-table-resizing-col * {
+  cursor: col-resize !important;
+}
+body.is-excel-resizing.is-table-resizing-row,
+body.is-excel-resizing.is-table-resizing-row * {
+  cursor: row-resize !important;
 }
 
 /* Floating Table Corner Handle for Mobile / Desktop */
@@ -4477,9 +4547,10 @@ tr.excel-page-break-bottom td {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
   }
   .df-line-resize-handle {
-    width: 20px !important;
-    height: 20px !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+    width: 7px !important;
+    height: 7px !important;
+    border-width: 1px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
   }
   .df-img-toolbar {
     position: fixed !important;
